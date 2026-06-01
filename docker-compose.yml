@@ -1,0 +1,75 @@
+name: ai-coach
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aicoach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aicoach}
+      POSTGRES_DB: ${POSTGRES_DB:-aicoach}
+    volumes:
+      - appdb:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aicoach}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+
+  api:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  worker:
+    build: ./backend
+    command: arq app.jobs.worker.WorkerSettings
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
+volumes:
+  appdb:
+  miniodata:

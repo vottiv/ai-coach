@@ -1,0 +1,172 @@
+import { useState } from "react";
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import { Card } from "@/components/ui/card";
+import { InsightsList } from "@/features/ai/InsightsList";
+import { cn } from "@/lib/utils";
+
+import { useRecords, useVolume } from "./api";
+import { MuscleBalanceCard } from "./MuscleBalanceCard";
+import { PR_LABEL } from "./types";
+
+const PERIODS = [
+  { key: "week", label: "Неделя" },
+  { key: "month", label: "Месяц" },
+  { key: "3months", label: "3 месяца" },
+  { key: "year", label: "Год" },
+];
+
+type Tab = "volume" | "records" | "muscles" | "insights";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "volume", label: "Объём" },
+  { key: "records", label: "Рекорды" },
+  { key: "muscles", label: "Мышцы" },
+  { key: "insights", label: "Инсайты" },
+];
+
+function shortLabel(label: string): string {
+  if (/^\d{4}-\d{2}$/.test(label)) {
+    const [, m] = label.split("-");
+    return ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"][
+      Number(m) - 1
+    ];
+  }
+  const d = new Date(label);
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
+export function Progress() {
+  const [period, setPeriod] = useState("month");
+  const [tab, setTab] = useState<Tab>("volume");
+  const { data: volume } = useVolume(period);
+  const { data: records } = useRecords();
+
+  const chartData = (volume ?? []).map((p) => ({ ...p, name: shortLabel(p.label) }));
+
+  return (
+    <div className="space-y-4">
+      {/* Переключатель вкладок */}
+      <div className="flex gap-1 overflow-x-auto rounded-2xl border border-border bg-surface p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "flex-1 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+              tab === t.key
+                ? t.key === "insights"
+                  ? "bg-feelings text-white"
+                  : "bg-workouts text-white"
+                : "text-muted hover:text-zinc-200",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Объём */}
+      {tab === "volume" && (
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium">Объём (тоннаж)</h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PERIODS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs",
+                  period === p.key
+                    ? "border-workouts bg-workouts/10 text-workouts"
+                    : "border-border text-muted",
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {chartData.length === 0 ? (
+            <p className="text-sm text-muted">Нет данных за период.</p>
+          ) : (
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="vol" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F97316" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="#F97316" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#a1a1aa" }} stroke="#3f3f46" />
+                  <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} stroke="#3f3f46" width={48} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "#18181b",
+                      border: "1px solid #3f3f46",
+                      borderRadius: 12,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "#a1a1aa" }}
+                    formatter={(v: number) => [`${Math.round(v).toLocaleString("ru-RU")} кг`, "Объём"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="volume"
+                    stroke="#F97316"
+                    strokeWidth={2}
+                    fill="url(#vol)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Мышцы */}
+      {tab === "muscles" && <MuscleBalanceCard />}
+
+      {/* Рекорды */}
+      {tab === "records" && (
+        <Card className="space-y-3">
+          <h2 className="font-medium">Личные рекорды</h2>
+          {(records?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted">Рекорды появятся после первых тренировок.</p>
+          ) : (
+            <div className="space-y-2">
+              {records?.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{r.exercise_name}</p>
+                    <p className="text-xs text-muted">{PR_LABEL[r.type]}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-workouts">
+                    {r.type === "max_reps"
+                      ? `${r.value} повт.`
+                      : `${Math.round(r.value).toLocaleString("ru-RU")} кг`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Инсайты — кросс-модульная аналитика (ТЗ п. 6.3, этап 5) */}
+      {tab === "insights" && <InsightsList />}
+    </div>
+  );
+}
