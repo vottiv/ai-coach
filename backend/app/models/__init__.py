@@ -1,4 +1,5 @@
 from app.models.auth_identity import AuthIdentity
+from app.models.body_measurement import BodyMeasurement
 from app.models.exercise import ExerciseCatalog
 from app.models.health import Biomarker, HealthAnalysis
 from app.models.nutrition import FoodEntry, NutritionLog
@@ -20,4 +21,5 @@ __all__ = [
     "SubjectiveLog",
     "HealthAnalysis",
     "Biomarker",
+    "BodyMeasurement",
 ]

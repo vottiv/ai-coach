@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, func
+from sqlalchemy import Boolean, Date, DateTime, Float, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,7 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     gender: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
     goals: Mapped[list] = mapped_column(JSONB, default=list)
     enabled_modules: Mapped[list] = mapped_column(JSONB, default=list)
 
@@ -36,3 +37,14 @@ class User(Base):
     identities: Mapped[list["AuthIdentity"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
+
+    @property
+    def computed_age(self) -> int | None:
+        if not self.birthdate:
+            return self.age
+        today = date.today()
+        return (
+            today.year
+            - self.birthdate.year
+            - ((today.month, today.day) < (self.birthdate.month, self.birthdate.day))
+        )

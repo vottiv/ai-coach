@@ -1,9 +1,12 @@
-import { ChevronRight, FlaskConical } from "lucide-react";
+import { ChevronRight, FlaskConical, Ruler } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { MeasurementForm } from "@/features/measurements/MeasurementForm";
+import { MeasurementHistory } from "@/features/measurements/MeasurementHistory";
 import { MODULE_META, type ModuleKey } from "@/config/modules";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +16,7 @@ export function Profile() {
   const navigate = useNavigate();
   const enabled = (user?.enabled_modules ?? []) as ModuleKey[];
   const healthEnabled = enabled.length === 0 || enabled.includes("health");
+  const [showMeasurements, setShowMeasurements] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -31,6 +35,42 @@ export function Profile() {
           {user?.username && <p className="text-sm text-muted">@{user.username}</p>}
         </div>
       </Card>
+
+      {(user?.gender || user?.birthdate || user?.weight || user?.height) && (
+        <Card>
+          <h2 className="mb-3 font-medium">Параметры</h2>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            {user?.gender && (
+              <div>
+                <span className="text-muted">Пол: </span>
+                {user.gender === "male" ? "Мужской" : "Женский"}
+              </div>
+            )}
+            {user?.birthdate && (
+              <div>
+                <span className="text-muted">День рождения: </span>
+                {new Date(user.birthdate).toLocaleDateString("ru-RU", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </div>
+            )}
+            {user?.weight && (
+              <div>
+                <span className="text-muted">Вес: </span>
+                {user.weight} кг
+              </div>
+            )}
+            {user?.height && (
+              <div>
+                <span className="text-muted">Рост: </span>
+                {user.height} см
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <h2 className="mb-3 font-medium">Активные модули</h2>
@@ -60,6 +100,26 @@ export function Profile() {
             <ChevronRight className="h-4 w-4 text-muted" />
           </Card>
         </button>
+      )}
+
+      <button onClick={() => setShowMeasurements(!showMeasurements)} className="block w-full text-left">
+        <Card className="flex items-center gap-3 hover:border-zinc-600">
+          <span className="rounded-2xl bg-bg p-2.5 text-workouts">
+            <Ruler className="h-5 w-5" />
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-medium">Замеры тела</p>
+            <p className="mt-0.5 text-xs text-muted">Вес, бицепс, плечи, грудь, талия и др.</p>
+          </div>
+          <ChevronRight className={cn("h-4 w-4 text-muted transition-transform", showMeasurements && "rotate-90")} />
+        </Card>
+      </button>
+
+      {showMeasurements && (
+        <div className="space-y-4">
+          <MeasurementForm onSaved={() => setShowMeasurements(true)} />
+          <MeasurementHistory />
+        </div>
       )}
 
       <Button variant="outline" className="w-full" onClick={logout}>

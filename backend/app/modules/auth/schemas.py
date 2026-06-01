@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -6,6 +8,8 @@ class UserOut(BaseModel):
     name: str
     username: str | None = None
     avatar_url: str | None = None
+    gender: str | None = None
+    birthdate: date | None = None
     onboarded: bool
     enabled_modules: list[str] = []
     goals: list[str] = []

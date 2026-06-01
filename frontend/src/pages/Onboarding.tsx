@@ -50,9 +50,9 @@ export function Onboarding() {
   const [goals, setGoals] = useState<string[]>([]);
   const [modules, setModules] = useState<string[]>(["workouts"]);
   const [gender, setGender] = useState<"male" | "female">("male");
+  const [birthdate, setBirthdate] = useState("");
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
-  const [age, setAge] = useState("");
   const [saving, setSaving] = useState(false);
 
   function toggle(list: string[], setList: (v: string[]) => void, id: string) {
@@ -62,15 +62,29 @@ export function Onboarding() {
   async function finish() {
     setSaving(true);
     try {
-      const user = await api.put<User>("/users/me", {
+      const body: Record<string, unknown> = {
         gender,
         goals,
         enabled_modules: modules,
-        weight: weight ? Number(weight) : undefined,
         height: height ? Number(height) : undefined,
-        age: age ? Number(age) : undefined,
         onboarded: true,
-      });
+      };
+      if (birthdate) {
+        body.birthdate = birthdate;
+        const bd = new Date(birthdate);
+        const today = new Date();
+        body.age =
+          today.getFullYear() -
+          bd.getFullYear() -
+          (today.getMonth() < bd.getMonth() ||
+          (today.getMonth() === bd.getMonth() && today.getDate() < bd.getDate())
+            ? 1
+            : 0);
+      }
+      if (weight) {
+        body.weight = Number(weight);
+      }
+      const user = await api.put<User>("/users/me", body);
       setUser(user);
       navigate("/", { replace: true });
     } finally {
@@ -127,6 +141,7 @@ export function Onboarding() {
           <section className="space-y-4">
             <h2 className="text-lg font-semibold">Параметры</h2>
             <p className="text-sm text-muted">Нужны для формул целей (калории, БЖУ, подходы).</p>
+
             <div className="flex gap-2">
               <Chip active={gender === "male"} onClick={() => setGender("male")}>
                 Мужской
@@ -135,28 +150,39 @@ export function Onboarding() {
                 Женский
               </Chip>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+
+            <div>
+              <label className="mb-1 block text-xs text-muted">Дата рождения</label>
               <input
-                className="h-11 rounded-2xl border border-border bg-bg px-3 text-sm outline-none"
-                placeholder="Вес, кг"
-                inputMode="decimal"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
+                type="date"
+                className="h-11 w-full rounded-2xl border border-border bg-bg px-3 text-sm outline-none focus:border-zinc-500"
+                value={birthdate}
+                onChange={(e) => setBirthdate(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
               />
-              <input
-                className="h-11 rounded-2xl border border-border bg-bg px-3 text-sm outline-none"
-                placeholder="Рост, см"
-                inputMode="decimal"
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-              />
-              <input
-                className="h-11 rounded-2xl border border-border bg-bg px-3 text-sm outline-none"
-                placeholder="Возраст"
-                inputMode="numeric"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs text-muted">Вес, кг</label>
+                <input
+                  className="h-11 w-full rounded-2xl border border-border bg-bg px-3 text-sm outline-none"
+                  inputMode="decimal"
+                  placeholder="70"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-muted">Рост, см</label>
+                <input
+                  className="h-11 w-full rounded-2xl border border-border bg-bg px-3 text-sm outline-none"
+                  inputMode="decimal"
+                  placeholder="175"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                />
+              </div>
             </div>
           </section>
         )}

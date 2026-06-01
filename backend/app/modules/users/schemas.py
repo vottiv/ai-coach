@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -12,6 +13,7 @@ class UserProfile(BaseModel):
     username: str | None = None
     avatar_url: str | None = None
     gender: str | None = None
+    birthdate: date | None = None
     goals: list[str] = []
     enabled_modules: list[str] = []
     weight: float | None = None
@@ -28,6 +30,7 @@ class UserProfile(BaseModel):
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     gender: Literal["male", "female"] | None = None
+    birthdate: date | None = None
     goals: list[Goal] | None = None
     enabled_modules: list[Module] | None = None
     weight: float | None = Field(default=None, gt=0, lt=500)

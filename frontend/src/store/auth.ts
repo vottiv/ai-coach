@@ -6,6 +6,11 @@ export interface User {
   name: string;
   username?: string | null;
   avatar_url?: string | null;
+  gender?: string | null;
+  birthdate?: string | null;
+  weight?: number | null;
+  height?: number | null;
+  age?: number | null;
   onboarded: boolean;
   enabled_modules: string[];
   goals: string[];
