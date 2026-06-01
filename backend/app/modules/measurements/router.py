@@ -7,13 +7,13 @@ from app.modules.measurements.schemas import MeasurementIn, MeasurementOut
 router = APIRouter(prefix="/measurements", tags=["measurements"])
 
 
-@router.get("/", response_model=list[MeasurementOut])
+@router.get("", response_model=list[MeasurementOut])
 async def list_all(user: CurrentUser, db: DbSession, limit: int = 30) -> list[MeasurementOut]:
     rows = await service.list_measurements(db, user.id, limit)
     return [MeasurementOut.model_validate(m) for m in rows]
 
 
-@router.post("/", response_model=MeasurementOut, status_code=201)
+@router.post("", response_model=MeasurementOut, status_code=201)
 async def create(body: MeasurementIn, user: CurrentUser, db: DbSession) -> MeasurementOut:
     data = body.model_dump()
     m = await service.upsert(db, user.id, data)
