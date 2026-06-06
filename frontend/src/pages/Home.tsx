@@ -34,8 +34,8 @@ export function Home() {
   const nutritionEnabled = enabled.length === 0 || enabled.includes("nutrition");
   const feelingsEnabled = enabled.length === 0 || enabled.includes("feelings");
 
-  const { data: workouts } = useWorkouts();
-  const lastWorkout = workouts?.[0];
+  const { data: workoutsData } = useWorkouts();
+  const lastWorkout = workoutsData?.items?.[0];
 
   return (
     <div className="space-y-5">

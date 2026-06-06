@@ -41,6 +41,14 @@ _MUSCLE_HINT_SYSTEM = (
     "reason ≤ 1 предложение."
 )
 
+_BODY_ASSESSMENT_SYSTEM = (
+    "Ты — опытный тренер и нутрициолог. На вход получаешь последние замеры тела пользователя, "
+    "его пол и возраст. Дай краткую оценку текущего состояния тела: пропорции, баланс, "
+    "потенциальные зоны для улучшения. Учитывай пол и возраст. "
+    "Будь доброжелательным и конкретным. 3-5 предложений на русском языке. "
+    "Ответ строго в JSON: {\"assessment\": str}."
+)
+
 
 def is_enabled() -> bool:
     return bool(settings.openai_api_key)
@@ -158,4 +166,52 @@ async def get_muscle_hints(
         return cleaned[:4] or None
     except (httpx.HTTPError, KeyError, ValueError, TypeError) as exc:
         logger.warning("OpenAI muscle hint failed: %s", exc)
+        return None
+
+
+async def get_body_assessment(measurement, user) -> str | None:
+    if not is_enabled():
+        return None
+
+    gender_ru = "мужской" if user.gender == "male" else "женский" if user.gender else "не указан"
+    age = user.age or "не указан"
+
+    measurements_data = {}
+    field_map = {
+        "weight": "Вес (кг)", "bicep_left": "Бицепс левый (см)", "bicep_right": "Бицепс правый (см)",
+        "shoulders": "Плечи (см)", "chest": "Грудь (см)", "waist": "Талия (см)",
+        "glutes": "Ягодицы (см)", "hips_left": "Бедро левое (см)", "hips_right": "Бедро правое (см)",
+        "calves_left": "Икры левые (см)", "calves_right": "Икры правые (см)",
+    }
+    for attr, label in field_map.items():
+        val = getattr(measurement, attr, None)
+        if val is not None:
+            measurements_data[label] = val
+
+    payload = {
+        "model": _MODEL,
+        "temperature": 0.5,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": _BODY_ASSESSMENT_SYSTEM},
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {"пол": gender_ru, "возраст": age, "замеры": measurements_data},
+                    ensure_ascii=False,
+                ),
+            },
+        ],
+    }
+    headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.post(_API_URL, json=payload, headers=headers)
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+        parsed = json.loads(content)
+        return str(parsed.get("assessment", ""))[:1000] or None
+    except (httpx.HTTPError, KeyError, ValueError, TypeError) as exc:
+        logger.warning("OpenAI body assessment failed: %s", exc)
         return None

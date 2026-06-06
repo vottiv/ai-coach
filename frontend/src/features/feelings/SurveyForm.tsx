@@ -32,7 +32,6 @@ export function SurveyForm({ slot, date, initial, onSaved }: Props) {
     });
     return init;
   });
-  const [weight, setWeight] = useState<string>(initial?.body_weight?.toString() ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const save = useSaveSubjective();
 
@@ -44,7 +43,6 @@ export function SurveyForm({ slot, date, initial, onSaved }: Props) {
     questions.forEach((q) => {
       body[q.key] = scores[q.key] ?? null;
     });
-    if (slot === "morning") body.body_weight = weight ? Number(weight) : null;
     await save.mutateAsync(body);
     onSaved();
   };
@@ -74,20 +72,6 @@ export function SurveyForm({ slot, date, initial, onSaved }: Props) {
           </div>
         </div>
       ))}
-
-      {slot === "morning" && (
-        <div>
-          <label className="mb-1 block text-xs text-muted">Вес тела, кг (опционально)</label>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="например, 78.5"
-            className="h-11 w-full rounded-2xl border border-border bg-bg px-4 text-sm outline-none focus:border-feelings"
-          />
-        </div>
-      )}
 
       <div>
         <label className="mb-1 block text-xs text-muted">Заметка (опционально)</label>

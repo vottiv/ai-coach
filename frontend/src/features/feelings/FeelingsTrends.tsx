@@ -85,7 +85,7 @@ export function FeelingsTrends() {
               <Line type="monotone" dataKey="mood" name="Настроение" stroke="#8B5CF6" strokeWidth={2} connectNulls dot={false} />
               <Line type="monotone" dataKey="energy" name="Энергия" stroke="#F97316" strokeWidth={2} connectNulls dot={false} />
               <Line type="monotone" dataKey="sleep" name="Сон" stroke="#3B82F6" strokeWidth={2} connectNulls dot={false} />
-              <Line type="monotone" dataKey="stress" name="Стресс" stroke="#EF4444" strokeWidth={2} connectNulls dot={false} />
+              <Line type="monotone" dataKey="stress" name="Спокойствие" stroke="#EF4444" strokeWidth={2} connectNulls dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

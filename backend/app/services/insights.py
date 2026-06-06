@@ -255,18 +255,18 @@ def _sleep_energy_insight(ctx: dict) -> dict | None:
 
 def _stress_skip_insight(ctx: dict) -> dict | None:
     days = ctx["days"]
-    high_stress = [d for d in days if d.get("stress") and d["stress"] >= 4]
     low_stress = [d for d in days if d.get("stress") and d["stress"] <= 2]
-    if len(high_stress) < 2 or not low_stress:
+    high_stress = [d for d in days if d.get("stress") and d["stress"] >= 4]
+    if len(low_stress) < 2 or not high_stress:
         return None
-    skip_high = sum(1 for d in high_stress if not d["workout"]) / len(high_stress)
     skip_low = sum(1 for d in low_stress if not d["workout"]) / len(low_stress)
-    if skip_high > skip_low + 0.3:
+    skip_high = sum(1 for d in high_stress if not d["workout"]) / len(high_stress)
+    if skip_low > skip_high + 0.3:
         return {
-            "title": "Стресс мешает тренировкам",
+            "title": "Низкое спокойствие мешает тренировкам",
             "body": (
-                f"В дни высокого стресса вы пропускаете тренировки чаще "
-                f"({round(skip_high * 100)}% против {round(skip_low * 100)}%). "
+                f"В дни низкого спокойствия вы пропускаете тренировки чаще "
+                f"({round(skip_low * 100)}% против {round(skip_high * 100)}%). "
                 "В такие дни помогает лёгкая нагрузка вместо полного пропуска."
             ),
             "category": "feelings",
@@ -406,14 +406,14 @@ def _fatigue_accumulation_insight(ctx: dict) -> dict | None:
     days = ctx["days"]
     if len(days) < 5:
         return None
-    high_fatigue = sum(1 for d in days if d.get("fatigue") and d["fatigue"] >= 4)
-    ratio = high_fatigue / len(days)
+    low_freshness = sum(1 for d in days if d.get("fatigue") and d["fatigue"] <= 2)
+    ratio = low_freshness / len(days)
     if ratio < 0.4:
         return None
     return {
         "title": "Накопление усталости",
         "body": (
-            f"Высокая усталость отмечена {high_fatigue} из {len(days)} дней. "
+            f"Низкая бодрость отмечена {low_freshness} из {len(days)} дней. "
             "Рекомендуется разгрузочная неделя или снижение интенсивности."
         ),
         "category": "feelings",
@@ -451,13 +451,13 @@ def _consistency_insight(ctx: dict) -> dict | None:
 
 def _soreness_overload_insight(ctx: dict) -> dict | None:
     days = ctx["days"]
-    high_soreness = [d for d in days if d.get("soreness") and d["soreness"] >= 4]
-    if len(high_soreness) < 3:
+    low_comfort = [d for d in days if d.get("soreness") and d["soreness"] <= 2]
+    if len(low_comfort) < 3:
         return None
     return {
-        "title": "Высокая болезненность мышц",
+        "title": "Низкий комфорт тела",
         "body": (
-            f"Сильная болезненность отмечена {len(high_soreness)} дней за период. "
+            f"Низкий комфорт тела отмечен {len(low_comfort)} дней за период. "
             "Возможно, стоит снизить объём или добавить дни отдыха между тяжёлыми тренировками."
         ),
         "category": "feelings",

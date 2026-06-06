@@ -101,6 +101,28 @@ export interface PersonalRecord {
   achieved_at: string;
 }
 
+export interface PaginatedWorkouts {
+  items: WorkoutListItem[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+export interface ExerciseRecordSummary {
+  exercise_id: number;
+  exercise_name: string;
+  max_weight: number;
+  max_reps_at_max_weight: number;
+}
+
+export interface MuscleGroupBalance {
+  category: string;
+  weekly_sets: number;
+  recommended_sets: number;
+  percentage: number;
+  groups: MuscleBalanceItem[];
+}
+
 export const WORKOUT_TYPES: { key: WorkoutType; label: string }[] = [
   { key: "strength", label: "Силовая" },
   { key: "cardio", label: "Кардио" },

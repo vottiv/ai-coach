@@ -36,3 +36,8 @@ class MuscleHint(BaseModel):
 class MuscleHintOut(BaseModel):
     hints: list[MuscleHint] = []
     ai_powered: bool = False
+
+
+class BodyAssessmentOut(BaseModel):
+    assessment: str = ""
+    ai_powered: bool = False

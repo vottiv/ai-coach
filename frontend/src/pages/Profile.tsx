@@ -5,8 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MeasurementForm } from "@/features/measurements/MeasurementForm";
-import { MeasurementHistory } from "@/features/measurements/MeasurementHistory";
+import { Measurements } from "@/features/measurements/Measurements";
 import { MODULE_META, type ModuleKey } from "@/config/modules";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,7 +35,7 @@ export function Profile() {
         </div>
       </Card>
 
-      {(user?.gender || user?.birthdate || user?.weight || user?.height) && (
+      {(user?.gender || user?.birthdate || user?.weight || user?.height || user?.age) && (
         <Card>
           <h2 className="mb-3 font-medium">Параметры</h2>
           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -54,6 +53,12 @@ export function Profile() {
                   month: "long",
                   year: "numeric",
                 })}
+              </div>
+            )}
+            {user?.age && (
+              <div>
+                <span className="text-muted">Возраст: </span>
+                {user.age} лет
               </div>
             )}
             {user?.weight && (
@@ -115,12 +120,7 @@ export function Profile() {
         </Card>
       </button>
 
-      {showMeasurements && (
-        <div className="space-y-4">
-          <MeasurementForm onSaved={() => setShowMeasurements(true)} />
-          <MeasurementHistory />
-        </div>
-      )}
+      {showMeasurements && <Measurements />}
 
       <Button variant="outline" className="w-full" onClick={logout}>
         Выйти

@@ -10,11 +10,13 @@ import type {
   CalendarOut,
   Exercise,
   ExerciseMeta,
+  ExerciseRecordSummary,
   MuscleBalanceItem,
+  MuscleGroupBalance,
+  PaginatedWorkouts,
   PersonalRecord,
   VolumePoint,
   WorkoutCreate,
-  WorkoutListItem,
   WorkoutOut,
 } from "./types";
 
@@ -22,11 +24,14 @@ const keys = {
   exercises: (category?: string, search?: string) =>
     ["exercises", category ?? "all", search ?? ""] as const,
   meta: ["exercise-meta"] as const,
-  workouts: ["workouts"] as const,
+  workouts: (skip: number, limit: number, from_date?: string, to_date?: string) =>
+    ["workouts", skip, limit, from_date, to_date] as const,
   workout: (id: number) => ["workout", id] as const,
   calendar: (year: number, month: number) => ["calendar", year, month] as const,
   balance: ["muscle-balance"] as const,
+  balanceCategories: ["muscle-balance-categories"] as const,
   records: ["records"] as const,
+  recordsSummary: ["records-summary"] as const,
   volume: (period: string) => ["volume", period] as const,
 };
 
@@ -64,17 +69,19 @@ export function useCreateExercise() {
 }
 
 function invalidateWorkoutData(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: keys.workouts });
+  qc.invalidateQueries({ queryKey: ["workouts"] });
   qc.invalidateQueries({ queryKey: ["calendar"] });
   qc.invalidateQueries({ queryKey: keys.balance });
+  qc.invalidateQueries({ queryKey: keys.balanceCategories });
   qc.invalidateQueries({ queryKey: keys.records });
+  qc.invalidateQueries({ queryKey: keys.recordsSummary });
   qc.invalidateQueries({ queryKey: ["volume"] });
 }
 
-export function useWorkouts() {
+export function useWorkouts(skip: number = 0, limit: number = 10, from_date?: string, to_date?: string) {
   return useQuery({
-    queryKey: keys.workouts,
-    queryFn: () => api.get<WorkoutListItem[]>("/workouts"),
+    queryKey: keys.workouts(skip, limit, from_date, to_date),
+    queryFn: () => api.get<PaginatedWorkouts>(`/workouts${qs({ skip, limit, from_date, to_date })}`),
   });
 }
 
@@ -102,6 +109,15 @@ export function useDeleteWorkout() {
   });
 }
 
+export function useUpdateWorkout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: WorkoutCreate }) => 
+      api.put<WorkoutOut>(`/workouts/${id}`, body),
+    onSuccess: () => invalidateWorkoutData(qc),
+  });
+}
+
 export function useCalendar(year: number, month: number) {
   return useQuery({
     queryKey: keys.calendar(year, month),
@@ -116,10 +132,24 @@ export function useMuscleBalance() {
   });
 }
 
+export function useMuscleBalanceCategories() {
+  return useQuery({
+    queryKey: keys.balanceCategories,
+    queryFn: () => api.get<MuscleGroupBalance[]>("/workouts/muscle-balance/categories"),
+  });
+}
+
 export function useRecords() {
   return useQuery({
     queryKey: keys.records,
     queryFn: () => api.get<PersonalRecord[]>("/workouts/records"),
+  });
+}
+
+export function useRecordsSummary() {
+  return useQuery({
+    queryKey: keys.recordsSummary,
+    queryFn: () => api.get<ExerciseRecordSummary[]>("/workouts/records/summary"),
   });
 }
 

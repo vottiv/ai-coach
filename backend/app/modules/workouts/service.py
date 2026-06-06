@@ -60,19 +60,32 @@ async def get_workout(db: AsyncSession, user_id: int, workout_id: int) -> Workou
 
 
 async def list_workouts(
-    db: AsyncSession, user_id: int, *, from_date: date | None, to_date: date | None
-) -> list[Workout]:
+    db: AsyncSession,
+    user_id: int,
+    *,
+    from_date: date | None,
+    to_date: date | None,
+    skip: int = 0,
+    limit: int = 10,
+) -> tuple[list[Workout], int]:
+    count_stmt = select(func.count(Workout.id)).where(Workout.user_id == user_id)
     stmt = (
         select(Workout)
         .where(Workout.user_id == user_id)
         .options(selectinload(Workout.exercises).selectinload(WorkoutExercise.sets))
     )
     if from_date:
+        count_stmt = count_stmt.where(Workout.date >= from_date)
         stmt = stmt.where(Workout.date >= from_date)
     if to_date:
+        count_stmt = count_stmt.where(Workout.date <= to_date)
         stmt = stmt.where(Workout.date <= to_date)
-    stmt = stmt.order_by(Workout.date.desc(), Workout.id.desc())
-    return list(await db.scalars(stmt))
+
+    total = (await db.scalar(count_stmt)) or 0
+
+    stmt = stmt.order_by(Workout.date.desc(), Workout.id.desc()).offset(skip).limit(limit)
+    workouts = list(await db.scalars(stmt))
+    return workouts, total
 
 
 async def delete_workout(db: AsyncSession, user_id: int, workout_id: int) -> bool:
@@ -82,6 +95,38 @@ async def delete_workout(db: AsyncSession, user_id: int, workout_id: int) -> boo
     await db.delete(workout)
     await db.commit()
     return True
+
+
+async def update_workout(db: AsyncSession, user_id: int, workout_id: int, data: WorkoutCreate) -> Workout | None:
+    workout = await get_workout(db, user_id, workout_id)
+    if workout is None:
+        return None
+
+    workout.date = data.date
+    workout.type = data.type
+    workout.feeling = data.feeling
+    workout.notes = data.notes
+    workout.duration = data.duration
+
+    for we in workout.exercises:
+        for s in we.sets:
+            await db.delete(s)
+    for we in workout.exercises:
+        await db.delete(we)
+    workout.exercises.clear()
+
+    for i, ex in enumerate(data.exercises):
+        we = WorkoutExercise(
+            exercise_id=ex.exercise_id, exercise_name=ex.exercise_name, order=i, workout_id=workout.id
+        )
+        for j, s in enumerate(ex.sets):
+            we.sets.append(ExerciseSet(weight=s.weight, reps=s.reps, rpe=s.rpe, order=j))
+        workout.exercises.append(we)
+
+    await db.flush()
+    await _update_personal_records(db, user_id, data)
+    await db.commit()
+    return workout
 
 
 # --- Personal records (ТЗ п. 8.1) ----------------------------------------
@@ -261,3 +306,120 @@ async def volume_progress(db: AsyncSession, user_id: int, period: str) -> list[d
     for d, vol in rows.all():
         buckets[_bucket_label(d, period)] += float(vol or 0)
     return [{"label": label, "volume": buckets[label]} for label in sorted(buckets)]
+
+
+async def exercise_records_summary(db: AsyncSession, user_id: int) -> list[dict]:
+    stmt = (
+        select(
+            ExerciseCatalog.id.label("exercise_id"),
+            ExerciseCatalog.name.label("exercise_name"),
+            func.max(ExerciseSet.weight).label("max_weight"),
+        )
+        .select_from(Workout)
+        .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
+        .join(ExerciseSet, ExerciseSet.workout_exercise_id == WorkoutExercise.id)
+        .join(ExerciseCatalog, ExerciseCatalog.id == WorkoutExercise.exercise_id)
+        .where(Workout.user_id == user_id, WorkoutExercise.exercise_id.isnot(None))
+        .group_by(ExerciseCatalog.id, ExerciseCatalog.name)
+        .order_by(func.max(ExerciseSet.weight).desc())
+    )
+    results = []
+
+    rows = await db.execute(stmt)
+    max_weights = {row.exercise_id: row.max_weight for row in rows}
+
+    for exercise_id, max_weight in max_weights.items():
+        if max_weight == 0:
+            continue
+
+        max_reps_stmt = (
+            select(func.max(ExerciseSet.reps))
+            .select_from(Workout)
+            .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
+            .join(ExerciseSet, ExerciseSet.workout_exercise_id == WorkoutExercise.id)
+            .where(
+                Workout.user_id == user_id,
+                WorkoutExercise.exercise_id == exercise_id,
+                ExerciseSet.weight == max_weight,
+            )
+        )
+        max_reps = (await db.scalar(max_reps_stmt)) or 0
+
+        exercise = await db.scalar(select(ExerciseCatalog).where(ExerciseCatalog.id == exercise_id))
+        if exercise:
+            results.append({
+                "exercise_id": exercise_id,
+                "exercise_name": exercise.name,
+                "max_weight": float(max_weight),
+                "max_reps_at_max_weight": max_reps,
+            })
+
+    return results
+
+
+CATEGORY_TO_MUSCLE_GROUPS = {
+    "Грудь": ["Грудь"],
+    "Спина": ["Широчайшие", "Трапеции"],
+    "Плечи": ["Плечи передние", "Плечи средние", "Плечи задние"],
+    "Руки": ["Бицепс", "Трицепс", "Предплечья"],
+    "Ноги": ["Квадрицепсы", "Бицепс бедра", "Икры", "Ягодицы"],
+    "Кор": ["Пресс", "Косые"],
+    "Кардио": ["Кардио"],
+    "Всё тело": ["Поясница"],
+}
+
+
+async def muscle_balance_by_category(db: AsyncSession, user_id: int, goals: list[str]) -> list[dict]:
+    week_ago = date.today() - timedelta(days=7)
+
+    rows = await db.execute(
+        select(ExerciseCatalog.muscle_groups, func.count(ExerciseSet.id))
+        .select_from(Workout)
+        .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
+        .join(ExerciseSet, ExerciseSet.workout_exercise_id == WorkoutExercise.id)
+        .join(ExerciseCatalog, ExerciseCatalog.id == WorkoutExercise.exercise_id)
+        .where(Workout.user_id == user_id, Workout.date >= week_ago)
+        .group_by(WorkoutExercise.id, ExerciseCatalog.muscle_groups)
+    )
+
+    sets_per_group: dict[str, int] = defaultdict(int)
+    for groups, set_count in rows.all():
+        for g in groups or []:
+            sets_per_group[g] += set_count
+
+    biweekly = await db.scalar(
+        select(func.count())
+        .select_from(Workout)
+        .where(Workout.user_id == user_id, Workout.date >= date.today() - timedelta(days=14))
+    )
+    targets = recommended_weekly_sets(goals or [], biweekly or 0)
+
+    result = []
+    for category, groups in CATEGORY_TO_MUSCLE_GROUPS.items():
+        category_sets = sum(sets_per_group.get(g, 0) for g in groups)
+        category_target = sum(targets.get(g, 0) for g in groups if g in targets)
+        category_pct = round(category_sets / category_target * 100) if category_target else 0
+
+        category_groups = []
+        for group in groups:
+            if group not in targets:
+                continue
+            actual = sets_per_group.get(group, 0)
+            target = targets[group]
+            pct = round(actual / target * 100) if target else 0
+            category_groups.append({
+                "muscle_group": group,
+                "weekly_sets": actual,
+                "recommended_sets": target,
+                "percentage": pct,
+            })
+
+        result.append({
+            "category": category,
+            "weekly_sets": category_sets,
+            "recommended_sets": category_target,
+            "percentage": category_pct,
+            "groups": category_groups,
+        })
+
+    return result

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/PageHeader";
 import { NewWorkoutForm } from "@/features/workouts/NewWorkoutForm";
@@ -15,7 +16,19 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export function Workouts() {
-  const [tab, setTab] = useState<Tab>("new");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") as Tab | null;
+  const tab: Tab = tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : "new";
+
+  const setTab = (newTab: Tab) => {
+    setSearchParams({ tab: newTab }, { replace: true });
+  };
+
+  useEffect(() => {
+    if (!tabParam) {
+      setSearchParams({ tab: "new" }, { replace: true });
+    }
+  }, [tabParam, setSearchParams]);
 
   return (
     <div>

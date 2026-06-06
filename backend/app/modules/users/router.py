@@ -25,6 +25,19 @@ async def update_me(body: UserUpdate, user: CurrentUser, db: DbSession) -> UserP
             db, user.id, {"measured_at": date.today(), "weight": new_weight}
         )
 
+    # Auto-compute age from birthdate if birthdate changed
+    new_birthdate = update_data.get("birthdate")
+    if new_birthdate is not None:
+        from datetime import date as DateType
+        if isinstance(new_birthdate, DateType):
+            today = DateType.today()
+            user.age = (
+                today.year
+                - new_birthdate.year
+                - ((today.month, today.day) < (new_birthdate.month, new_birthdate.day))
+            )
+            update_data.pop("age", None)  # Remove manual age if birthdate provided
+
     for field, value in update_data.items():
         setattr(user, field, value)
     await db.commit()

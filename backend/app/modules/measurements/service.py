@@ -6,6 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.body_measurement import BodyMeasurement
 
 
+async def get_by_id(db: AsyncSession, measurement_id: int, user_id: int) -> BodyMeasurement | None:
+    return await db.scalar(
+        select(BodyMeasurement).where(
+            BodyMeasurement.id == measurement_id, BodyMeasurement.user_id == user_id
+        )
+    )
+
+
 async def upsert(
     db: AsyncSession, user_id: int, data: dict
 ) -> BodyMeasurement:
@@ -28,8 +36,22 @@ async def upsert(
     return m
 
 
+async def update(
+    db: AsyncSession, m: BodyMeasurement, data: dict
+) -> BodyMeasurement:
+    for k, v in data.items():
+        setattr(m, k, v)
+    await db.flush()
+    return m
+
+
+async def delete_measurement(db: AsyncSession, m: BodyMeasurement) -> None:
+    await db.delete(m)
+    await db.flush()
+
+
 async def list_measurements(
-    db: AsyncSession, user_id: int, limit: int = 30
+    db: AsyncSession, user_id: int, limit: int = 90
 ) -> list[BodyMeasurement]:
     rows = await db.scalars(
         select(BodyMeasurement)

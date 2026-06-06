@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -7,14 +7,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { X, Dumbbell, Plus } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { InsightsList } from "@/features/ai/InsightsList";
 import { cn } from "@/lib/utils";
 
-import { useRecords, useVolume } from "./api";
+import { useRecordsSummary, useVolume } from "./api";
 import { MuscleBalanceCard } from "./MuscleBalanceCard";
-import { PR_LABEL } from "./types";
+import { ExercisePicker } from "./ExercisePicker";
 
 const PERIODS = [
   { key: "week", label: "Неделя" },
@@ -46,14 +48,34 @@ function shortLabel(label: string): string {
 export function Progress() {
   const [period, setPeriod] = useState("month");
   const [tab, setTab] = useState<Tab>("volume");
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [trackedExercises, setTrackedExercises] = useState<number[]>([]);
+
   const { data: volume } = useVolume(period);
-  const { data: records } = useRecords();
+  const { data: recordsSummary } = useRecordsSummary();
+
+  const trackedRecords = useMemo(() => {
+    if (!recordsSummary || trackedExercises.length === 0) return [];
+    return trackedExercises
+      .map((exerciseId) => recordsSummary.find((r) => r.exercise_id === exerciseId))
+      .filter((r): r is Exclude<typeof r, undefined> => r !== undefined);
+  }, [trackedExercises, recordsSummary]);
+
+  const handleAddExercise = (exercise: { id: number; name: string }) => {
+    if (!trackedExercises.includes(exercise.id)) {
+      setTrackedExercises((prev) => [...prev, exercise.id]);
+    }
+    setShowExercisePicker(false);
+  };
+
+  const handleRemoveExercise = (exerciseId: number) => {
+    setTrackedExercises((prev) => prev.filter((id) => id !== exerciseId));
+  };
 
   const chartData = (volume ?? []).map((p) => ({ ...p, name: shortLabel(p.label) }));
 
   return (
     <div className="space-y-4">
-      {/* Переключатель вкладок */}
       <div className="flex gap-1 overflow-x-auto rounded-2xl border border-border bg-surface p-1">
         {TABS.map((t) => (
           <button
@@ -73,7 +95,6 @@ export function Progress() {
         ))}
       </div>
 
-      {/* Объём */}
       {tab === "volume" && (
         <Card className="space-y-4">
           <div className="flex items-center justify-between">
@@ -133,39 +154,67 @@ export function Progress() {
         </Card>
       )}
 
-      {/* Мышцы */}
       {tab === "muscles" && <MuscleBalanceCard />}
 
-      {/* Рекорды */}
       {tab === "records" && (
         <Card className="space-y-3">
-          <h2 className="font-medium">Личные рекорды</h2>
-          {(records?.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted">Рекорды появятся после первых тренировок.</p>
-          ) : (
-            <div className="space-y-2">
-              {records?.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{r.exercise_name}</p>
-                    <p className="text-xs text-muted">{PR_LABEL[r.type]}</p>
-                  </div>
-                  <span className="text-sm font-semibold text-workouts">
-                    {r.type === "max_reps"
-                      ? `${r.value} повт.`
-                      : `${Math.round(r.value).toLocaleString("ru-RU")} кг`}
-                  </span>
-                </div>
-              ))}
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium">Рекорды</h2>
+            <Button
+              variant="outline"
+              onClick={() => setShowExercisePicker(true)}
+              className="gap-1"
+            >
+              <Plus className="h-3 w-3" />
+              Добавить
+            </Button>
+          </div>
+
+          {trackedExercises.length === 0 && trackedRecords.length === 0 && (
+            <div className="py-8 text-center">
+              <Dumbbell className="mx-auto h-10 w-10 text-muted mb-3" />
+              <p className="text-sm text-muted">Добавьте упражнения для отслеживания рекордов</p>
             </div>
+          )}
+
+          <div className="space-y-2">
+            {trackedRecords.map((record) => (
+              <div
+                key={record.exercise_id}
+                className="group relative rounded-2xl border border-border bg-surface px-4 py-3 hover:border-zinc-600 transition-colors"
+              >
+                <button
+                  onClick={() => handleRemoveExercise(record.exercise_id)}
+                  className="absolute right-3 top-3 rounded-lg p-1 text-muted opacity-0 hover:text-red-400 transition-opacity group-hover:opacity-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="pr-6">
+                  <p className="text-sm font-medium">{record.exercise_name}</p>
+                  {record.max_weight > 0 ? (
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-workouts">
+                        {record.max_weight}
+                      </span>
+                      <span className="text-sm text-muted">кг</span>
+                      <span className="text-xs text-muted">× {record.max_reps_at_max_weight} повт.</span>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted">
+                      Попробуйте свои силы и обновите результат
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {showExercisePicker && (
+            <ExercisePicker onSelect={handleAddExercise} onClose={() => setShowExercisePicker(false)} />
           )}
         </Card>
       )}
 
-      {/* Инсайты — кросс-модульная аналитика (ТЗ п. 6.3, этап 5) */}
       {tab === "insights" && <InsightsList />}
     </div>
   );

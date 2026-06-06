@@ -102,3 +102,25 @@ class PersonalRecordOut(BaseModel):
     achieved_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedWorkouts(BaseModel):
+    items: list[WorkoutListItem]
+    total: int
+    skip: int
+    limit: int
+
+
+class ExerciseRecordSummary(BaseModel):
+    exercise_id: int
+    exercise_name: str
+    max_weight: float
+    max_reps_at_max_weight: int
+
+
+class MuscleGroupBalance(BaseModel):
+    category: str
+    weekly_sets: int
+    recommended_sets: int
+    percentage: int
+    groups: list[MuscleBalanceItem] = []
