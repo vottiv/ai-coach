@@ -49,10 +49,34 @@ async def login_or_create_oauth(
     email: str | None = None,
     meta: dict | None = None,
 ) -> User:
-    """Единая точка входа для telegram/google: находит профиль по identity или создаёт новый."""
+    """Единая точка входа для telegram/google: находит профиль по identity или создаёт новый.
+
+    Логика связывания аккаунтов:
+    1. Если identity уже существует - вернуть пользователя
+    2. Если есть email в OAuth ответе:
+       - Найти пользователя с этим email в auth_identities
+       - Если найден - привязать новую identity к существующему пользователю
+       - Если не найден - создать нового пользователя
+    3. Если нет email - создать нового пользователя
+    """
     identity = await _identity(db, provider, provider_id)
     if identity is not None:
         return identity.user
+
+    if email:
+        existing_identity = await _email_identity(db, email)
+        if existing_identity is not None:
+            user = existing_identity.user
+            new_identity = AuthIdentity(
+                provider=provider,
+                provider_id=provider_id,
+                email=email.lower(),
+                meta=meta or {},
+            )
+            user.identities.append(new_identity)
+            db.add(new_identity)
+            await db.flush()
+            return user
 
     user = User(name=name, username=username, avatar_url=avatar_url)
     user.identities.append(

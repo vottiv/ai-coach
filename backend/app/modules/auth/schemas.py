@@ -31,10 +31,6 @@ class TelegramAuthIn(BaseModel):
     init_data: str
 
 
-class GoogleAuthIn(BaseModel):
-    credential: str
-
-
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)

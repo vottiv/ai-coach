@@ -2,6 +2,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.modules.ai.router import router as ai_router
 from app.modules.auth.router import router as auth_router
 from app.modules.exercises.router import router as exercises_router
 from app.modules.health.router import router as health_router
@@ -39,4 +40,5 @@ api.include_router(subjective_router)
 api.include_router(health_router)
 api.include_router(insights_router)
 api.include_router(measurements_router)
+api.include_router(ai_router)
 app.include_router(api)

@@ -1,11 +1,12 @@
 import { Camera, Plus, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FoodRecognitionDialog } from "@/components/FoodRecognitionDialog";
 import { cn } from "@/lib/utils";
 
-import { useCreateMeal, useRecognizeFood } from "./api";
+import { useCreateMeal } from "./api";
 import { MEAL_TYPES, foodCalories, type FoodIn, type MealType } from "./types";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -15,11 +16,9 @@ export function MealForm({ onSaved }: { onSaved: () => void }) {
   const [date, setDate] = useState(todayIso());
   const [mealType, setMealType] = useState<MealType>("breakfast");
   const [foods, setFoods] = useState<FoodIn[]>([emptyFood()]);
-  const [recognizeNote, setRecognizeNote] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [showRecognition, setShowRecognition] = useState(false);
 
   const create = useCreateMeal();
-  const recognize = useRecognizeFood();
 
   const updateFood = (i: number, field: keyof FoodIn, value: string) =>
     setFoods((prev) =>
@@ -27,20 +26,6 @@ export function MealForm({ onSaved }: { onSaved: () => void }) {
         j !== i ? f : { ...f, [field]: field === "name" ? value : Number(value) },
       ),
     );
-
-  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const result = await recognize.mutateAsync(file);
-    setRecognizeNote(result.note);
-    if (result.foods.length) {
-      setFoods((prev) => [
-        ...prev.filter((f) => f.name.trim()),
-        ...result.foods.map((f) => ({ ...f })),
-      ]);
-    }
-    if (fileRef.current) fileRef.current.value = "";
-  };
 
   const valid = foods.filter((f) => f.name.trim());
   const totals = valid.reduce(
@@ -56,9 +41,31 @@ export function MealForm({ onSaved }: { onSaved: () => void }) {
   const save = async () => {
     await create.mutateAsync({ date, meal_type: mealType, foods: valid });
     setFoods([emptyFood()]);
-    setRecognizeNote(null);
     onSaved();
   };
+
+  const handleRecognizeConfirm = (recognizedFoods: any[]) => {
+    setFoods((prev) => [
+      ...prev.filter((f) => f.name.trim()),
+      ...recognizedFoods.map((f) => ({
+        name: f.name,
+        weight: f.weight,
+        protein: f.protein,
+        fat: f.fat,
+        carbs: f.carbs,
+      })),
+    ]);
+    setShowRecognition(false);
+  };
+
+  if (showRecognition) {
+    return (
+      <FoodRecognitionDialog
+        onConfirm={handleRecognizeConfirm}
+        onCancel={() => setShowRecognition(false)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -93,31 +100,19 @@ export function MealForm({ onSaved }: { onSaved: () => void }) {
         </div>
       </Card>
 
-      <Card className="space-y-2">
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="flex w-full items-center gap-3 text-left"
-          disabled={recognize.isPending}
-        >
+      <Card
+        className="space-y-2 cursor-pointer hover:border-nutrition/50"
+        onClick={() => setShowRecognition(true)}
+      >
+        <div className="flex items-center gap-3 text-left">
           <span className="rounded-2xl bg-bg p-2.5 text-nutrition">
             <Camera className="h-5 w-5" />
           </span>
           <div className="flex-1">
-            <p className="text-sm font-medium">
-              {recognize.isPending ? "Распознаём…" : "Сфотографировать еду"}
-            </p>
-            <p className="text-xs text-muted">Авто-заполнение БЖУ (или введите вручную)</p>
+            <p className="text-sm font-medium">Распознать еду с фото</p>
+            <p className="text-xs text-muted">AI автоматически определит продукты и БЖУ</p>
           </div>
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handlePhoto}
-        />
-        {recognizeNote && <p className="text-xs text-amber-400">{recognizeNote}</p>}
+        </div>
       </Card>
 
       {foods.map((food, i) => (

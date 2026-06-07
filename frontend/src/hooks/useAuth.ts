@@ -29,18 +29,12 @@ export function useAuth() {
     setSession(res.access, res.refresh, res.user);
   }
 
-  async function loginGoogle(credential: string) {
-    const res = await api.post<TokenPair>("/auth/google", { credential });
-    setSession(res.access, res.refresh, res.user);
-  }
-
   return {
     isAuthenticated: Boolean(access),
     user,
     loginTelegram,
     loginEmail,
     registerEmail,
-    loginGoogle,
     logout,
   };
 }

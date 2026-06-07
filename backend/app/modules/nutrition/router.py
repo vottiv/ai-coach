@@ -2,6 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
+from app.agents import AgentManager
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
 from app.modules.nutrition import service
@@ -12,6 +13,7 @@ from app.modules.nutrition.schemas import (
     RecognizeOut,
     Totals,
 )
+import json
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -51,17 +53,56 @@ async def daily_summary(
 
 @router.post("/recognize", response_model=RecognizeOut)
 async def recognize(user: CurrentUser, photo: UploadFile = File(...)) -> RecognizeOut:
-    # Базовая валидация изображения; само распознавание подключается на AI-этапе (ТЗ п. 8.5).
+    """Распознать продукты с изображения используя AI агент."""
     if not (photo.content_type or "").startswith("image/"):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Ожидается изображение")
-    await photo.read()
-    if not settings.openai_api_key:
+
+    if not settings.openrouter_api_key_image:
         return RecognizeOut(
             foods=[],
-            note="Распознавание по фото подключается позже. Введите блюда вручную.",
+            note="Распознавание по фото временно недоступно. Введите блюда вручную.",
         )
-    # Заглушка: интеграция с vision-моделью добавляется на AI-этапе.
-    return RecognizeOut(foods=[], note="Распознавание временно недоступно. Введите блюда вручную.")
+
+    try:
+        # Загрузить изображение в MinIO
+        image_url = await service.upload_image(photo, user.id)
+
+        # Использовать AI агент для распознавания
+        manager = AgentManager()
+        result = await manager.execute(
+            "food_recognizer",
+            {"image_url": image_url},
+        )
+
+        # Парсинг результата
+        data = json.loads(result.content)
+
+        if "error" in data:
+            return RecognizeOut(
+                foods=[],
+                note="Не удалось распознать изображение. Попробуйте другой угол или свет.",
+            )
+
+        # Конвертация в формат фронтенда
+        foods = []
+        for product in data.get("products", []):
+            foods.append({
+                "name": product.get("name", ""),
+                "weight": int(product.get("quantity", "0").replace("г", "").replace("шт", "").strip()) or 100,
+                "protein": product.get("protein", 0),
+                "fat": product.get("fat", 0),
+                "carbs": product.get("carbs", 0),
+            })
+
+        note = f"Распознано {len(foods)} продуктов"
+
+        return RecognizeOut(foods=foods, note=note)
+
+    except Exception as e:
+        return RecognizeOut(
+            foods=[],
+            note=f"Ошибка распознавания: {str(e)}",
+        )
 
 
 @router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT)

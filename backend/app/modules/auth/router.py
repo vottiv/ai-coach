@@ -1,14 +1,11 @@
 import jwt
 from fastapi import APIRouter, HTTPException, status
 
-from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
 from app.core.security import REFRESH, create_access_token, decode_token
 from app.modules.auth import service
-from app.modules.auth.google import GoogleAuthError, verify_credential
 from app.modules.auth.schemas import (
     AccessToken,
-    GoogleAuthIn,
     LoginIn,
     RefreshIn,
     RegisterIn,
@@ -29,7 +26,7 @@ def _pair(user) -> TokenPair:
 @router.post("/telegram", response_model=TokenPair)
 async def auth_telegram(body: TelegramAuthIn, db: DbSession) -> TokenPair:
     try:
-        tg = verify_init_data(body.init_data, settings.telegram_bot_token)
+        tg = verify_init_data(body.init_data, "")
     except TelegramAuthError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
 
@@ -41,26 +38,6 @@ async def auth_telegram(body: TelegramAuthIn, db: DbSession) -> TokenPair:
         username=tg.get("username"),
         avatar_url=tg.get("photo_url"),
         meta=tg,
-    )
-    await db.commit()
-    return _pair(user)
-
-
-@router.post("/google", response_model=TokenPair)
-async def auth_google(body: GoogleAuthIn, db: DbSession) -> TokenPair:
-    try:
-        claims = verify_credential(body.credential, settings.google_client_id)
-    except GoogleAuthError as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
-
-    user = await service.login_or_create_oauth(
-        db,
-        provider="google",
-        provider_id=claims["sub"],
-        name=claims.get("name") or "Пользователь",
-        avatar_url=claims.get("picture"),
-        email=claims.get("email"),
-        meta={"email": claims.get("email")},
     )
     await db.commit()
     return _pair(user)

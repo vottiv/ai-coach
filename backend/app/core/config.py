@@ -29,14 +29,17 @@ class Settings(BaseSettings):
 
     # Провайдеры входа
     telegram_bot_token: str = ""
-    google_client_id: str = ""
 
     # Шифрование чувствительных полей (этапы 4+)
     field_encryption_key: str = ""
 
-    # AI / S3 (используются на следующих этапах)
-    openai_api_key: str = ""
-    s3_endpoint: str = "http://minio:9000"
+    # AI / OpenRouter
+    openrouter_api_key_text: str = ""
+    openrouter_api_key_image: str = ""
+    openrouter_api_base: str = "https://openrouter.ai/api/v1"
+
+    # S3 / MinIO (используются на следующих этапах)
+    s3_endpoint: str = ""
     s3_bucket: str = "ai-coach"
     s3_access_key: str = ""
     s3_secret_key: str = ""

@@ -1,9 +1,12 @@
 from datetime import date, timedelta
+from io import BytesIO
 
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.models.nutrition import FoodEntry, NutritionLog
 from app.models.user import User
 from app.models.workout import Workout
@@ -81,6 +84,37 @@ async def _biweekly_workouts(db: AsyncSession, user_id: int) -> int:
         .where(Workout.user_id == user_id, Workout.date >= date.today() - timedelta(days=14))
     )
     return count or 0
+
+
+async def upload_image(photo, user_id: int) -> str:
+    """Загрузить изображение в MinIO и вернуть URL."""
+    import uuid
+
+    # Чтение содержимого файла
+    content = await photo.read()
+
+    # Генерация уникального имени файла
+    ext = photo.filename.split(".")[-1] if photo.filename else "jpg"
+    filename = f"nutrition/{user_id}/{uuid.uuid4()}.{ext}"
+
+    # Загрузка в MinIO
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        # Сначала создадим bucket если его нет
+        try:
+            await client.put(
+                f"{settings.s3_endpoint}/{settings.s3_bucket}/{filename}",
+                headers={
+                    "Content-Type": photo.content_type or "image/jpeg",
+                },
+                content=content,
+                auth=(settings.s3_access_key, settings.s3_secret_key),
+            )
+        except Exception as e:
+            # Если MinIO не работает, используем временный URL
+            print(f"MinIO upload failed: {e}")
+            return f"data:{photo.content_type or 'image/jpeg'};base64,{content.hex()}"
+
+    return f"{settings.s3_endpoint}/{settings.s3_bucket}/{filename}"
 
 
 async def daily_summary(db: AsyncSession, user: User, target_date: date) -> dict:

@@ -10,6 +10,84 @@ import { EditWorkoutForm } from "./EditWorkoutForm";
 import { FEELINGS, WORKOUT_TYPE_LABEL } from "./types";
 import { cn } from "@/lib/utils";
 
+const MUSCLE_GROUPS: Record<string, string> = {
+  "Грудь": "Грудь",
+  "Плечи передние": "Плечи",
+  "Плечи средние": "Плечи", 
+  "Плечи задние": "Плечи",
+  "Трицепс": "Руки",
+  "Широчайшие": "Спина",
+  "Бицепс": "Руки",
+  "Предплечья": "Руки",
+  "Трапеции": "Спина",
+  "Поясница": "Спина",
+  "Ягодицы": "Ноги",
+  "Бицепс бедра": "Ноги",
+  "Квадрицепсы": "Ноги",
+  "Икры": "Ноги",
+  "Пресс": "Кор",
+  "Косые": "Кор",
+  "Кардио": "Кардио",
+};
+
+const EXERCISE_MUSCLE_GROUPS: Record<string, string[]> = {
+  "Жим штанги лёжа": ["Грудь", "Плечи", "Руки"],
+  "Жим гантелей лёжа": ["Грудь", "Плечи", "Руки"],
+  "Разводка гантелей": ["Грудь", "Плечи"],
+  "Отжимания": ["Грудь", "Руки", "Плечи", "Кор"],
+  "Кроссовер": ["Грудь"],
+  "Подтягивания": ["Спина", "Руки"],
+  "Тяга верхнего блока": ["Спина", "Руки"],
+  "Тяга штанги в наклоне": ["Спина", "Руки"],
+  "Тяга гантели в наклоне": ["Спина", "Руки"],
+  "Гиперэкстензия": ["Спина", "Ноги"],
+  "Жим гантелей сидя": ["Плечи", "Руки"],
+  "Махи в стороны": ["Плечи"],
+  "Махи в наклоне": ["Плечи"],
+  "Жим Арнольда": ["Плечи", "Руки"],
+  "Сгибание со штангой": ["Руки"],
+  "Сгибание с гантелями": ["Руки"],
+  "Молотки": ["Руки"],
+  "Разгибание на блоке": ["Руки"],
+  "Жим узким хватом": ["Руки", "Грудь"],
+  "Французский жим": ["Руки"],
+  "Приседания": ["Ноги", "Спина"],
+  "Жим ногами": ["Ноги"],
+  "Выпады": ["Ноги"],
+  "Сгибание ног": ["Ноги"],
+  "Румынская тяга": ["Ноги", "Спина"],
+  "Подъём на носки": ["Ноги"],
+  "Скручивания": ["Кор"],
+  "Подъём ног в висе": ["Кор", "Руки"],
+  "Планка": ["Кор", "Спина"],
+  "Русские скручивания": ["Кор"],
+  "Бег": ["Кардио"],
+  "Велосипед": ["Кардио", "Ноги"],
+  "Скакалка": ["Кардио", "Ноги"],
+  "Берпи": ["Кардио", "Грудь", "Ноги", "Плечи", "Кор"],
+};
+
+function getDominantMuscleGroup(workout: any): string {
+  if (!workout.exercises || workout.exercises.length === 0) return "—";
+  
+  const groupLoad: Record<string, number> = {};
+  
+  for (const exercise of workout.exercises) {
+    const muscles = EXERCISE_MUSCLE_GROUPS[exercise.exercise_name] || [];
+    const volume = exercise.sets.reduce((sum: number, set: any) => 
+      sum + (set.weight * set.reps), 0);
+    
+    for (const muscle of muscles) {
+      groupLoad[muscle] = (groupLoad[muscle] || 0) + volume;
+    }
+  }
+  
+  const sortedGroups = Object.entries(groupLoad)
+    .sort((a, b) => b[1] - a[1]);
+  
+  return sortedGroups.length > 0 ? sortedGroups[0][0] : "—";
+}
+
 const MONTH_NAMES = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
@@ -38,9 +116,8 @@ export function WorkoutHistory() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   const dateRange = useMemo(() => {
@@ -72,32 +149,12 @@ export function WorkoutHistory() {
     setPage(0);
   };
 
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === workouts.length && workouts.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(workouts.map((w) => w.id)));
-    }
-  };
-
   const del = useDeleteWorkout();
-  const handleBulkDelete = async () => {
-    await Promise.all([...selectedIds].map((id) => del.mutateAsync(id)));
-    setSelectedIds(new Set());
-    setEditMode(false);
-    if ((workouts.length - selectedIds.size) === 0 && page > 0) {
+  const handleDelete = async (id: number) => {
+    await del.mutateAsync(id);
+    setDeleteId(null);
+    setOpenId(null);
+    if (workouts.length === 1 && page > 0) {
       setPage(page - 1);
     }
   };
@@ -207,17 +264,6 @@ export function WorkoutHistory() {
             {MONTH_NAMES[month - 1]} {year}
           </span>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            setEditMode(!editMode);
-            setSelectedIds(new Set());
-          }}
-          className={editMode ? "bg-workouts/10 text-workouts" : ""}
-        >
-          <Edit className="h-4 w-4" />
-        </Button>
       </div>
 
       {isLoading && <p className="text-sm text-muted">Загрузка…</p>}
@@ -234,42 +280,19 @@ export function WorkoutHistory() {
           <table className="w-full text-sm">
             <thead className="bg-surface">
               <tr className="border-b border-border">
-                {editMode && (
-                  <th className="w-10 p-3">
-                    <input
-                      type="checkbox"
-                      checked={workouts.length > 0 && selectedIds.size === workouts.length}
-                      onChange={toggleSelectAll}
-                      className="h-4 w-4 rounded border-border bg-bg"
-                    />
-                  </th>
-                )}
                 <th className="p-3 text-left">Дата</th>
                 <th className="p-3 text-left">Тип</th>
-                <th className="p-3 text-left hidden sm:table-cell">Упр.</th>
+                <th className="p-3 text-left">Группа</th>
                 <th className="p-3 text-right">Тоннаж</th>
-                <th className="w-8 p-3" />
+                <th className="p-3 text-right">Действия</th>
               </tr>
             </thead>
             <tbody>
               {workouts.map((w) => (
                 <tr
                   key={w.id}
-                  className={cn(
-                    "border-b border-border/50 hover:bg-surface/50 transition-colors",
-                    editMode && selectedIds.has(w.id) && "bg-workouts/5"
-                  )}
+                  className="border-b border-border/50 hover:bg-surface/50 transition-colors"
                 >
-                  {editMode && (
-                    <td className="p-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(w.id)}
-                        onChange={() => toggleSelect(w.id)}
-                        className="h-4 w-4 rounded border-border bg-bg"
-                      />
-                    </td>
-                  )}
                   <td className="p-3">
                     <button
                       onClick={() => setOpenId(w.id)}
@@ -279,7 +302,7 @@ export function WorkoutHistory() {
                     </button>
                   </td>
                   <td className="p-3">{WORKOUT_TYPE_LABEL[w.type]}</td>
-                  <td className="p-3 text-muted hidden sm:table-cell">{w.exercise_count}</td>
+                  <td className="p-3">{getDominantMuscleGroup(w)}</td>
                   <td className="p-3 text-right">
                     {Math.round(w.tonnage).toLocaleString("ru-RU")} кг
                   </td>
@@ -297,29 +320,23 @@ export function WorkoutHistory() {
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteId(w.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </Card>
-      )}
-
-      {editMode && selectedIds.size > 0 && (
-        <Card className="flex items-center justify-between p-4">
-          <span className="text-sm text-muted">
-            Выбрано: {selectedIds.size}
-          </span>
-          <Button
-            variant="outline"
-            className="border-red-500 text-red-400"
-            onClick={handleBulkDelete}
-            disabled={del.isPending}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Удалить
-          </Button>
         </Card>
       )}
 
@@ -347,6 +364,27 @@ export function WorkoutHistory() {
         </div>
       )}
 
+      {deleteId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <Card className="max-w-md p-6">
+            <p className="text-sm font-medium mb-4">Удалить тренировку?</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 border-red-500 text-red-400"
+                onClick={() => handleDelete(deleteId)}
+                disabled={del.isPending}
+              >
+                Удалить
+              </Button>
+              <Button variant="ghost" onClick={() => setDeleteId(null)}>
+                Отмена
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {openId !== null && <WorkoutDetail id={openId} onClose={() => setOpenId(null)} />}
       {editId !== null && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
@@ -367,14 +405,6 @@ export function WorkoutHistory() {
 
 function WorkoutDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const { data: workout, isLoading } = useWorkout(id);
-  const del = useDeleteWorkout();
-  const [confirm, setConfirm] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-
-  const handleDelete = async () => {
-    await del.mutateAsync(id);
-    onClose();
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
@@ -390,7 +420,7 @@ function WorkoutDetail({ id, onClose }: { id: number; onClose: () => void }) {
 
         {isLoading && <p className="text-sm text-muted">Загрузка…</p>}
 
-        {workout && !isEditing && (
+        {workout && (
           <div className="space-y-4">
             <div className="flex items-center justify-between text-sm text-muted">
               <span>{formatDate(workout.date)}</span>
@@ -420,44 +450,7 @@ function WorkoutDetail({ id, onClose }: { id: number; onClose: () => void }) {
                 <p className="mt-1 text-sm">{workout.notes}</p>
               </Card>
             )}
-
-            {confirm ? (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 border-red-500 text-red-400"
-                  onClick={handleDelete}
-                  disabled={del.isPending}
-                >
-                  Подтвердить удаление
-                </Button>
-                <Button variant="ghost" onClick={() => setConfirm(false)}>
-                  Отмена
-                </Button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Edit className="h-4 w-4 mr-2" /> Редактировать
-                </Button>
-                <Button
-                  variant="outline"
-                  className="text-red-400"
-                  onClick={() => setConfirm(true)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
           </div>
-        )}
-
-        {isEditing && (
-          <EditWorkoutForm id={id} onClose={() => setIsEditing(false)} />
         )}
       </div>
     </div>
