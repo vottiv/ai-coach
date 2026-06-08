@@ -64,6 +64,8 @@ export function useCreateExercise() {
       name: string;
       category: string;
       muscle_groups: string[];
+      equipment_type?: string;
+      default_bodyweight_percent?: number | null;
     }) => api.post<Exercise>("/exercises", body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["exercises"] }),
   });

@@ -1,12 +1,14 @@
-import { Plus, Trash2, GripVertical, X, ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-import { useCreateWorkout } from "./api";
-import { ExercisePicker } from "./ExercisePicker";
+import { useUpdateWorkout, useWorkout } from "../features/workouts/api";
+import { ExercisePicker } from "../features/workouts/ExercisePicker";
 import {
   EQUIPMENT_TYPES,
   FEELINGS,
@@ -14,7 +16,7 @@ import {
   type Exercise,
   type WorkoutExerciseIn,
   type WorkoutType,
-} from "./types";
+} from "../features/workouts/types";
 import {
   DndContext,
   closestCenter,
@@ -33,14 +35,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
-const todayIso = () => new Date().toISOString().slice(0, 10);
-
-type DraggableData = {
-  type: "exercise" | "superset";
-  index: number;
-  exerciseIndex?: number;
-};
 
 function SortableExerciseCard({
   exercise,
@@ -84,7 +78,7 @@ function SortableExerciseCard({
         <div className="flex items-center gap-2">
           {!inSuperset && (
             <button {...listeners} className="cursor-grab text-muted hover:text-zinc-200">
-              <GripVertical className="h-5 w-5" />
+              ⋮⋮
             </button>
           )}
           <div className="flex-1 flex items-center gap-2">
@@ -102,7 +96,7 @@ function SortableExerciseCard({
                 className="p-1.5 text-muted hover:text-workouts rounded-lg hover:bg-workouts/10"
                 title="Разделить"
               >
-                <X className="h-4 w-4" />
+                ❌
               </button>
             )}
             <button
@@ -110,7 +104,7 @@ function SortableExerciseCard({
               className="p-1.5 text-muted hover:text-red-400 rounded-lg hover:bg-red-400/10"
               title="Удалить"
             >
-              <Trash2 className="h-4 w-4" />
+              🗑️
             </button>
           </div>
         </div>
@@ -165,29 +159,33 @@ function SortableExerciseCard({
                 className="p-1 text-muted hover:text-red-400"
                 disabled={exercise.sets.length === 1}
               >
-                <Trash2 className="h-4 w-4" />
+                🗑️
               </button>
             </div>
           ))}
         </div>
         <Button variant="outline" size="md" className="w-full" onClick={() => onAddSet(index)}>
-          <Plus className="h-4 w-4 mr-2" /> Подход
+          ➕ Подход
         </Button>
       </Card>
     </div>
   );
 }
 
-export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
-  const [date, setDate] = useState(todayIso());
+export function EditWorkoutPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const workoutId = id ? parseInt(id) : null;
+  
+  const { data: workout, isLoading } = useWorkout(workoutId);
+  const [date, setDate] = useState("");
   const [type, setType] = useState<WorkoutType>("strength");
   const [feeling, setFeeling] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [exercises, setExercises] = useState<WorkoutExerciseIn[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-
-  const create = useCreateWorkout();
+  const { mutateAsync: update, isPending } = useUpdateWorkout();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -196,6 +194,29 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
       },
     })
   );
+
+  useEffect(() => {
+    if (workout) {
+      setDate(workout.date);
+      setType(workout.type);
+      setFeeling(workout.feeling);
+      setNotes(workout.notes ?? "");
+      setExercises(
+        workout.exercises.map((ex) => ({
+          exercise_id: ex.exercise_id,
+          exercise_name: ex.exercise_name,
+          superset_id: ex.superset_id,
+          superset_order: ex.superset_order,
+          sets: ex.sets.map((s) => ({
+            weight: s.weight,
+            reps: s.reps,
+            uses_bodyweight: s.uses_bodyweight,
+            bodyweight_percent: s.bodyweight_percent,
+          })),
+        }))
+      );
+    }
+  }, [workout]);
 
   const addExercise = (ex: Exercise) => {
     const equipment = EQUIPMENT_TYPES.find((e) => e.key === ex.equipment_type) || EQUIPMENT_TYPES[7];
@@ -412,14 +433,18 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
   };
 
   const save = async () => {
-    await create.mutateAsync({
-      date,
-      type,
-      feeling,
-      notes: notes.trim() || null,
-      exercises: exercises.map((e, i) => ({ ...e, order: i })),
+    if (!workoutId) return;
+    await update({ 
+      id: workoutId, 
+      body: { 
+        date, 
+        type, 
+        feeling, 
+        notes: notes.trim() || null, 
+        exercises: exercises.map((e, i) => ({ ...e, order: i }))
+      } 
     });
-    onSaved();
+    navigate("/workouts?tab=history");
   };
 
   const activeExercise = activeId
@@ -428,18 +453,45 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
       )
     : null;
 
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <p className="text-sm text-muted">Загрузка…</p>
+      </div>
+    );
+  }
+
+  if (!workout) {
+    return (
+      <div className="p-4">
+        <p className="text-sm text-muted">Тренировка не найдена</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      <PageHeader 
+        title="Редактирование тренировки" 
+        subtitle={workout.date}
+        backButton={
+          <button onClick={() => navigate("/workouts?tab=history")} className="flex items-center gap-2 text-sm text-muted hover:text-zinc-200">
+            <ArrowLeft className="h-4 w-4" />
+            Назад
+          </button>
+        }
+      />
+
       <Card className="space-y-4">
         <div className="flex items-center gap-4">
-          <div>
+          <div className="flex-1">
             <label className="mb-1 block text-xs text-muted">Дата</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker()}
-              className="h-11 w-48 rounded-2xl border border-border bg-bg px-4 text-sm outline-none focus:border-zinc-500"
+              className="h-11 w-full rounded-2xl border border-border bg-bg px-4 text-sm outline-none focus:border-zinc-500"
             />
           </div>
           <div className="flex-1">
@@ -504,7 +556,7 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
       </DndContext>
 
       <Button variant="outline" className="w-full" onClick={() => setPickerOpen(true)}>
-        <Plus className="h-4 w-4 mr-2" /> Добавить упражнение
+        ➕ Добавить упражнение
       </Button>
 
       <Card className="space-y-4">
@@ -537,14 +589,19 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
         </div>
       </Card>
 
-      <Button
-        className="w-full"
-        size="lg"
-        onClick={save}
-        disabled={exercises.length === 0 || create.isPending}
-      >
-        {create.isPending ? "Сохранение…" : "Сохранить тренировку"}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          className="flex-1"
+          size="lg"
+          onClick={save}
+          disabled={exercises.length === 0 || isPending}
+        >
+          {isPending ? "Сохранение…" : "Сохранить"}
+        </Button>
+        <Button variant="outline" size="lg" onClick={() => navigate("/workouts?tab=history")}>
+          Отмена
+        </Button>
+      </div>
 
       {pickerOpen && (
         <ExercisePicker onSelect={addExercise} onClose={() => setPickerOpen(false)} />

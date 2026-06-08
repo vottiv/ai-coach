@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { EditWorkoutPage } from "@/pages/EditWorkoutPage";
 import { Feelings } from "@/pages/Feelings";
 import { Health } from "@/pages/Health";
 import { Home } from "@/pages/Home";
@@ -37,6 +38,7 @@ export default function App() {
       >
         <Route path="/" element={<Home />} />
         <Route path="/workouts" element={<Workouts />} />
+        <Route path="/workouts/:id/edit" element={<EditWorkoutPage />} />
         <Route path="/nutrition" element={<Nutrition />} />
         <Route path="/feelings" element={<Feelings />} />
         <Route path="/health" element={<Health />} />

@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.body_measurement import BodyMeasurement
 from app.models.exercise import ExerciseCatalog
 from app.models.personal_record import PersonalRecord
 from app.models.workout import ExerciseSet, Workout, WorkoutExercise
@@ -14,15 +15,39 @@ from app.services.targets import MUSCLE_GROUPS, recommended_weekly_sets
 PR_TYPES = ("max_weight", "max_reps", "max_volume")
 
 
+async def _get_user_bodyweight(db: AsyncSession, user_id: int, workout_date: date) -> float | None:
+    from app.models.user import User
+    
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if user and user.weight:
+        return user.weight
+    
+    measurement = await db.scalar(
+        select(BodyMeasurement.weight)
+        .where(BodyMeasurement.user_id == user_id)
+        .where(BodyMeasurement.weight.isnot(None))
+        .where(BodyMeasurement.measured_at <= workout_date)
+        .order_by(BodyMeasurement.measured_at.desc())
+        .limit(1)
+    )
+    return measurement
+
+
 def tonnage(workout: Workout) -> float:
     return float(
-        sum(s.weight * s.reps for we in workout.exercises for s in we.sets)
+        sum(
+            (s.calculated_weight or s.weight) * s.reps 
+            for we in workout.exercises 
+            for s in we.sets
+        )
     )
 
 
 # --- CRUD -----------------------------------------------------------------
 
 async def create_workout(db: AsyncSession, user_id: int, data: WorkoutCreate) -> Workout:
+    bodyweight = await _get_user_bodyweight(db, user_id, data.date)
+    
     workout = Workout(
         user_id=user_id,
         date=data.date,
@@ -31,19 +56,60 @@ async def create_workout(db: AsyncSession, user_id: int, data: WorkoutCreate) ->
         notes=data.notes,
         duration=data.duration,
     )
+    
     for i, ex in enumerate(data.exercises):
+        exercise_catalog = None
+        if ex.exercise_id:
+            exercise_catalog = await db.scalar(
+                select(ExerciseCatalog).where(ExerciseCatalog.id == ex.exercise_id)
+            )
+        
         we = WorkoutExercise(
-            exercise_id=ex.exercise_id, exercise_name=ex.exercise_name, order=i
+            exercise_id=ex.exercise_id,
+            exercise_name=ex.exercise_name,
+            order=i,
+            superset_id=ex.superset_id,
+            superset_order=ex.superset_order,
         )
+        
         for j, s in enumerate(ex.sets):
-            we.sets.append(ExerciseSet(weight=s.weight, reps=s.reps, rpe=s.rpe, order=j))
+            uses_bodyweight = s.uses_bodyweight or (
+                exercise_catalog and exercise_catalog.equipment_type == "bodyweight"
+            )
+            
+            bodyweight_percent = s.bodyweight_percent
+            if uses_bodyweight and bodyweight_percent is None and exercise_catalog:
+                bodyweight_percent = exercise_catalog.default_bodyweight_percent
+            
+            calculated_weight = None
+            bodyweight_used = None
+            
+            if uses_bodyweight and bodyweight:
+                bodyweight_used = bodyweight
+                if bodyweight_percent:
+                    calculated_weight = bodyweight * (bodyweight_percent / 100)
+                else:
+                    calculated_weight = bodyweight
+            
+            we.sets.append(
+                ExerciseSet(
+                    weight=s.weight,
+                    reps=s.reps,
+                    rpe=s.rpe,
+                    order=j,
+                    uses_bodyweight=uses_bodyweight,
+                    bodyweight_percent=bodyweight_percent,
+                    bodyweight_used=bodyweight_used,
+                    calculated_weight=calculated_weight,
+                )
+            )
+        
         workout.exercises.append(we)
 
     db.add(workout)
     await db.flush()
     await _update_personal_records(db, user_id, data)
     await db.commit()
-    # Граф exercises/sets построен в памяти (expire_on_commit=False) — IO не требуется.
     return workout
 
 
@@ -115,12 +181,56 @@ async def update_workout(db: AsyncSession, user_id: int, workout_id: int, data: 
         await db.delete(we)
     workout.exercises.clear()
 
+    bodyweight = await _get_user_bodyweight(db, user_id, data.date)
+
     for i, ex in enumerate(data.exercises):
+        exercise_catalog = None
+        if ex.exercise_id:
+            exercise_catalog = await db.scalar(
+                select(ExerciseCatalog).where(ExerciseCatalog.id == ex.exercise_id)
+            )
+        
         we = WorkoutExercise(
-            exercise_id=ex.exercise_id, exercise_name=ex.exercise_name, order=i, workout_id=workout.id
+            exercise_id=ex.exercise_id,
+            exercise_name=ex.exercise_name,
+            order=i,
+            workout_id=workout.id,
+            superset_id=ex.superset_id,
+            superset_order=ex.superset_order,
         )
+        
         for j, s in enumerate(ex.sets):
-            we.sets.append(ExerciseSet(weight=s.weight, reps=s.reps, rpe=s.rpe, order=j))
+            uses_bodyweight = s.uses_bodyweight or (
+                exercise_catalog and exercise_catalog.equipment_type == "bodyweight"
+            )
+            
+            bodyweight_percent = s.bodyweight_percent
+            if uses_bodyweight and bodyweight_percent is None and exercise_catalog:
+                bodyweight_percent = exercise_catalog.default_bodyweight_percent
+            
+            calculated_weight = None
+            bodyweight_used = None
+            
+            if uses_bodyweight and bodyweight:
+                bodyweight_used = bodyweight
+                if bodyweight_percent:
+                    calculated_weight = bodyweight * (bodyweight_percent / 100)
+                else:
+                    calculated_weight = bodyweight
+            
+            we.sets.append(
+                ExerciseSet(
+                    weight=s.weight,
+                    reps=s.reps,
+                    rpe=s.rpe,
+                    order=j,
+                    uses_bodyweight=uses_bodyweight,
+                    bodyweight_percent=bodyweight_percent,
+                    bodyweight_used=bodyweight_used,
+                    calculated_weight=calculated_weight,
+                )
+            )
+        
         workout.exercises.append(we)
 
     await db.flush()

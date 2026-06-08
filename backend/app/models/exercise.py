@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, Float, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,7 +11,8 @@ class ExerciseCatalog(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(160), index=True)
     category: Mapped[str] = mapped_column(String(32), index=True)
-    # Несколько мышечных групп на упражнение (ТЗ п. 7.1, п. 12)
+    equipment_type: Mapped[str] = mapped_column(String(32), default="other")
+    default_bodyweight_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     muscle_groups: Mapped[list] = mapped_column(JSONB, default=list)
     is_custom: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_by: Mapped[int | None] = mapped_column(

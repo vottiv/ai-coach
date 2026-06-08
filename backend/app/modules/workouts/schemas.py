@@ -12,12 +12,16 @@ class SetIn(BaseModel):
     weight: float = Field(ge=0, le=2000)
     reps: int = Field(ge=0, le=1000)
     rpe: float | None = Field(default=None, ge=1, le=10)
+    uses_bodyweight: bool = False
+    bodyweight_percent: float | None = Field(default=None, ge=0, le=200)
 
 
 class WorkoutExerciseIn(BaseModel):
     exercise_id: int | None = None
     exercise_name: str = Field(min_length=1, max_length=160)
     sets: list[SetIn] = Field(default_factory=list)
+    superset_id: str | None = None
+    superset_order: int | None = None
 
 
 class WorkoutCreate(BaseModel):
@@ -34,6 +38,10 @@ class SetOut(BaseModel):
     weight: float
     reps: int
     rpe: float | None = None
+    uses_bodyweight: bool
+    bodyweight_percent: float | None = None
+    bodyweight_used: float | None = None
+    calculated_weight: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -44,6 +52,8 @@ class WorkoutExerciseOut(BaseModel):
     exercise_name: str
     order: int
     sets: list[SetOut] = []
+    superset_id: str | None = None
+    superset_order: int | None = None
 
     model_config = {"from_attributes": True}
 

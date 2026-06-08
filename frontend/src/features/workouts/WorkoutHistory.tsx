@@ -1,12 +1,12 @@
 import { ChevronLeft, ChevronRight, Edit, Trash2, X } from "lucide-react";
 import { useState, useMemo, useCallback, memo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 import { useDeleteWorkout, useWorkout, useWorkouts } from "./api";
 import { Calendar } from "./Calendar";
-import { EditWorkoutForm } from "./EditWorkoutForm";
 import { FEELINGS, WORKOUT_TYPE_LABEL } from "./types";
 import { cn } from "@/lib/utils";
 
@@ -111,11 +111,11 @@ function getMonthRange(year: number, month: number) {
 
 export function WorkoutHistory() {
   const now = new Date();
+  const navigate = useNavigate();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
-  const [editId, setEditId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -288,15 +288,15 @@ export function WorkoutHistory() {
               </tr>
             </thead>
             <tbody>
-              {workouts.map((w) => (
-                <WorkoutRow
-                  key={w.id}
-                  workout={w}
-                  onOpen={() => setOpenId(w.id)}
-                  onEdit={() => setEditId(w.id)}
-                  onDelete={() => setDeleteId(w.id)}
-                />
-              ))}
+               {workouts.map((w) => (
+                 <WorkoutRow
+                   key={w.id}
+                   workout={w}
+                   onOpen={() => setOpenId(w.id)}
+                   onEdit={() => navigate(`/workouts/${w.id}/edit`)}
+                   onDelete={() => setDeleteId(w.id)}
+                 />
+               ))}
             </tbody>
           </table>
         </Card>
@@ -348,19 +348,6 @@ export function WorkoutHistory() {
       )}
 
       {openId !== null && <WorkoutDetail id={openId} onClose={() => setOpenId(null)} />}
-      {editId !== null && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-border bg-bg p-5 sm:rounded-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Редактирование тренировки</h3>
-              <button onClick={() => setEditId(null)} className="rounded-xl p-1.5 hover:bg-surface">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <EditWorkoutForm id={editId} onClose={() => setEditId(null)} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { useCreateExercise, useExerciseMeta, useExercises } from "./api";
-import type { Exercise } from "./types";
+import { EQUIPMENT_TYPES, type Exercise } from "./types";
 
 interface Props {
   onSelect: (exercise: Exercise) => void;
@@ -94,7 +94,14 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
                       <span className="ml-2 text-xs text-workouts">своё</span>
                     )}
                   </p>
-                  <p className="mt-0.5 text-xs text-muted">{ex.muscle_groups.join(" · ")}</p>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                    <span>{ex.muscle_groups.join(" · ")}</span>
+                    {ex.equipment_type === "bodyweight" && (
+                      <span className="rounded-full bg-workouts/10 px-1.5 py-0.5 text-workouts">
+                        вес тела
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Check className="h-4 w-4 text-muted" />
               </button>
@@ -120,10 +127,18 @@ function CustomExerciseForm({
   const [name, setName] = useState("");
   const [category, setCategory] = useState(categories[0] ?? "Всё тело");
   const [groups, setGroups] = useState<string[]>([]);
+  const [equipmentType, setEquipmentType] = useState("other");
+  const [bodyweightPercent, setBodyweightPercent] = useState<number | null>(null);
   const create = useCreateExercise();
 
   const toggle = (g: string) =>
     setGroups((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
+
+  const handleEquipmentChange = (value: string) => {
+    setEquipmentType(value);
+    const equipment = EQUIPMENT_TYPES.find((e) => e.key === value);
+    setBodyweightPercent(equipment?.bodyweight_percent ?? null);
+  };
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -131,6 +146,8 @@ function CustomExerciseForm({
       name: name.trim(),
       category,
       muscle_groups: groups,
+      equipment_type: equipmentType,
+      default_bodyweight_percent: bodyweightPercent,
     });
     onCreated(ex);
   };
@@ -154,6 +171,36 @@ function CustomExerciseForm({
           </option>
         ))}
       </select>
+      <div>
+        <p className="mb-2 text-xs text-muted">Тип оборудования</p>
+        <select
+          value={equipmentType}
+          onChange={(e) => handleEquipmentChange(e.target.value)}
+          className="h-11 w-full rounded-2xl border border-border bg-bg px-3 text-sm outline-none focus:border-zinc-500"
+        >
+          {EQUIPMENT_TYPES.map((e) => (
+            <option key={e.key} value={e.key}>
+              {e.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {equipmentType === "bodyweight" && (
+        <div>
+          <label className="mb-1 block text-xs text-muted">Процент веса тела</label>
+          <input
+            type="number"
+            value={bodyweightPercent ?? 100}
+            onChange={(e) => setBodyweightPercent(Number(e.target.value))}
+            min="0"
+            max="200"
+            className="h-11 w-full rounded-2xl border border-border bg-bg px-4 text-sm outline-none focus:border-zinc-500"
+          />
+          <p className="mt-1 text-xs text-muted">
+            {bodyweightPercent}% вашего веса будет учитываться как нагрузка
+          </p>
+        </div>
+      )}
       <div>
         <p className="mb-2 text-xs text-muted">Мышечные группы (можно несколько)</p>
         <div className="flex flex-wrap gap-2">

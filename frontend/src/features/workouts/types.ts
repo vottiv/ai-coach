@@ -4,6 +4,8 @@ export interface Exercise {
   id: number;
   name: string;
   category: string;
+  equipment_type: string;
+  default_bodyweight_percent: number | null;
   muscle_groups: string[];
   is_custom: boolean;
 }
@@ -17,12 +19,16 @@ export interface SetIn {
   weight: number;
   reps: number;
   rpe?: number | null;
+  uses_bodyweight?: boolean;
+  bodyweight_percent?: number | null;
 }
 
 export interface WorkoutExerciseIn {
   exercise_id: number | null;
   exercise_name: string;
   sets: SetIn[];
+  superset_id?: string | null;
+  superset_order?: number | null;
 }
 
 export interface WorkoutCreate {
@@ -39,6 +45,10 @@ export interface SetOut {
   weight: number;
   reps: number;
   rpe: number | null;
+  uses_bodyweight: boolean;
+  bodyweight_percent: number | null;
+  bodyweight_used: number | null;
+  calculated_weight: number | null;
 }
 
 export interface WorkoutExerciseOut {
@@ -47,6 +57,8 @@ export interface WorkoutExerciseOut {
   exercise_name: string;
   order: number;
   sets: SetOut[];
+  superset_id: string | null;
+  superset_order: number | null;
 }
 
 export interface WorkoutOut {
@@ -146,3 +158,14 @@ export const PR_LABEL: Record<PersonalRecord["type"], string> = {
   max_reps: "Макс. повторы",
   max_volume: "Макс. объём",
 };
+
+export const EQUIPMENT_TYPES: { key: string; label: string; bodyweight_percent: number | null }[] = [
+  { key: "bodyweight", label: "Собственный вес", bodyweight_percent: 100 },
+  { key: "dumbbell", label: "Гантели", bodyweight_percent: null },
+  { key: "barbell", label: "Штанга", bodyweight_percent: null },
+  { key: "machine", label: "Тренажер", bodyweight_percent: null },
+  { key: "cable", label: "Блок", bodyweight_percent: null },
+  { key: "band", label: "Резинки", bodyweight_percent: null },
+  { key: "kettlebell", label: "Гиря", bodyweight_percent: null },
+  { key: "other", label: "Другое", bodyweight_percent: null },
+];

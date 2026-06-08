@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -44,6 +44,8 @@ class WorkoutExercise(Base):
     )
     exercise_name: Mapped[str] = mapped_column(String(160))
     order: Mapped[int] = mapped_column(Integer, default=0)
+    superset_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    superset_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     workout: Mapped["Workout"] = relationship(back_populates="exercises")
     sets: Mapped[list["ExerciseSet"]] = relationship(
@@ -65,5 +67,9 @@ class ExerciseSet(Base):
     reps: Mapped[int] = mapped_column(Integer, default=0)
     rpe: Mapped[float | None] = mapped_column(Float, nullable=True)
     order: Mapped[int] = mapped_column(Integer, default=0)
+    uses_bodyweight: Mapped[bool] = mapped_column(Boolean, default=False)
+    bodyweight_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bodyweight_used: Mapped[float | None] = mapped_column(Float, nullable=True)
+    calculated_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     workout_exercise: Mapped["WorkoutExercise"] = relationship(back_populates="sets")
