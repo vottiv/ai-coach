@@ -99,6 +99,7 @@ export function MeasurementDialog({ open, onClose, measurement }: Props) {
             className="h-10 w-full rounded-xl border border-border bg-bg px-3 text-sm outline-none focus:border-zinc-500"
             value={dateValue}
             onChange={(e) => setDateValue(e.target.value)}
+            onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker()}
             max={todayIso()}
           />
         </div>

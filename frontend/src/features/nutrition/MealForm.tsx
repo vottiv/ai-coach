@@ -76,6 +76,7 @@ export function MealForm({ onSaved }: { onSaved: () => void }) {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker()}
             className="h-11 w-full rounded-2xl border border-border bg-bg px-4 text-sm outline-none focus:border-nutrition"
           />
         </div>

@@ -53,6 +53,7 @@ export function useExercises(category?: string, search?: string) {
   return useQuery({
     queryKey: keys.exercises(category, search),
     queryFn: () => api.get<Exercise[]>(`/exercises${qs({ category, search })}`),
+    staleTime: 300000,
   });
 }
 
@@ -71,17 +72,13 @@ export function useCreateExercise() {
 function invalidateWorkoutData(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["workouts"] });
   qc.invalidateQueries({ queryKey: ["calendar"] });
-  qc.invalidateQueries({ queryKey: keys.balance });
-  qc.invalidateQueries({ queryKey: keys.balanceCategories });
-  qc.invalidateQueries({ queryKey: keys.records });
-  qc.invalidateQueries({ queryKey: keys.recordsSummary });
-  qc.invalidateQueries({ queryKey: ["volume"] });
 }
 
 export function useWorkouts(skip: number = 0, limit: number = 10, from_date?: string, to_date?: string) {
   return useQuery({
     queryKey: keys.workouts(skip, limit, from_date, to_date),
     queryFn: () => api.get<PaginatedWorkouts>(`/workouts${qs({ skip, limit, from_date, to_date })}`),
+    staleTime: 30000,
   });
 }
 
@@ -122,6 +119,7 @@ export function useCalendar(year: number, month: number) {
   return useQuery({
     queryKey: keys.calendar(year, month),
     queryFn: () => api.get<CalendarOut>(`/workouts/calendar?year=${year}&month=${month}`),
+    staleTime: 60000,
   });
 }
 
@@ -129,6 +127,7 @@ export function useMuscleBalance() {
   return useQuery({
     queryKey: keys.balance,
     queryFn: () => api.get<MuscleBalanceItem[]>("/workouts/muscle-balance"),
+    staleTime: 120000,
   });
 }
 
@@ -136,6 +135,7 @@ export function useMuscleBalanceCategories() {
   return useQuery({
     queryKey: keys.balanceCategories,
     queryFn: () => api.get<MuscleGroupBalance[]>("/workouts/muscle-balance/categories"),
+    staleTime: Infinity,
   });
 }
 
@@ -143,6 +143,7 @@ export function useRecords() {
   return useQuery({
     queryKey: keys.records,
     queryFn: () => api.get<PersonalRecord[]>("/workouts/records"),
+    staleTime: 60000,
   });
 }
 
@@ -150,6 +151,7 @@ export function useRecordsSummary() {
   return useQuery({
     queryKey: keys.recordsSummary,
     queryFn: () => api.get<ExerciseRecordSummary[]>("/workouts/records/summary"),
+    staleTime: 60000,
   });
 }
 
@@ -157,5 +159,6 @@ export function useVolume(period: string) {
   return useQuery({
     queryKey: keys.volume(period),
     queryFn: () => api.get<VolumePoint[]>(`/workouts/progress/volume?period=${period}`),
+    staleTime: 60000,
   });
 }

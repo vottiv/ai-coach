@@ -158,6 +158,7 @@ export function Onboarding() {
                 className="h-11 w-full rounded-2xl border border-border bg-bg px-3 text-sm outline-none focus:border-zinc-500"
                 value={birthdate}
                 onChange={(e) => setBirthdate(e.target.value)}
+                onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker()}
                 max={new Date().toISOString().slice(0, 10)}
               />
             </div>

@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Edit, Trash2, X } from "lucide-react";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -289,51 +289,13 @@ export function WorkoutHistory() {
             </thead>
             <tbody>
               {workouts.map((w) => (
-                <tr
+                <WorkoutRow
                   key={w.id}
-                  className="border-b border-border/50 hover:bg-surface/50 transition-colors"
-                >
-                  <td className="p-3">
-                    <button
-                      onClick={() => setOpenId(w.id)}
-                      className="font-medium hover:text-workouts transition-colors"
-                    >
-                      {formatDate(w.date)}
-                    </button>
-                  </td>
-                  <td className="p-3">{WORKOUT_TYPE_LABEL[w.type]}</td>
-                  <td className="p-3">{getDominantMuscleGroup(w)}</td>
-                  <td className="p-3 text-right">
-                    {Math.round(w.tonnage).toLocaleString("ru-RU")} кг
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-end gap-1">
-                      {w.feeling && <span className="text-lg">{FEELINGS[w.feeling - 1]}</span>}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditId(w.id);
-                        }}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteId(w.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
+                  workout={w}
+                  onOpen={() => setOpenId(w.id)}
+                  onEdit={() => setEditId(w.id)}
+                  onDelete={() => setDeleteId(w.id)}
+                />
               ))}
             </tbody>
           </table>
@@ -402,6 +364,56 @@ export function WorkoutHistory() {
     </div>
   );
 }
+
+const WorkoutRow = memo(({ workout, onOpen, onEdit, onDelete }: { 
+  workout: any; 
+  onOpen: () => void; 
+  onEdit: () => void; 
+  onDelete: () => void;
+}) => (
+  <tr className="border-b border-border/50 hover:bg-surface/50 transition-colors">
+    <td className="p-3">
+      <button
+        onClick={onOpen}
+        className="font-medium hover:text-workouts transition-colors"
+      >
+        {formatDate(workout.date)}
+      </button>
+    </td>
+    <td className="p-3">{WORKOUT_TYPE_LABEL[workout.type]}</td>
+    <td className="p-3">{getDominantMuscleGroup(workout)}</td>
+    <td className="p-3 text-right">
+      {Math.round(workout.tonnage).toLocaleString("ru-RU")} кг
+    </td>
+    <td className="p-3">
+      <div className="flex items-center justify-end gap-1">
+        {workout.feeling && <span className="text-lg">{FEELINGS[workout.feeling - 1]}</span>}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+        >
+          <Edit className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </td>
+  </tr>
+));
 
 function WorkoutDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const { data: workout, isLoading } = useWorkout(id);
