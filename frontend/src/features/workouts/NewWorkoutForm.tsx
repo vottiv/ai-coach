@@ -1,5 +1,6 @@
 import { Plus, Trash2, GripVertical, X, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -179,7 +180,9 @@ function SortableExerciseCard({
 }
 
 export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
-  const [date, setDate] = useState(todayIso());
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get("date");
+  const [date, setDate] = useState(dateParam || todayIso());
   const [type, setType] = useState<WorkoutType>("strength");
   const [feeling, setFeeling] = useState<number | null>(null);
   const [notes, setNotes] = useState("");

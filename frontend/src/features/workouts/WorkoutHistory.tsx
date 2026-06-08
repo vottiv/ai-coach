@@ -118,7 +118,6 @@ export function WorkoutHistory() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   const dateRange = useMemo(() => {
     if (selectedDay) {
@@ -144,11 +143,6 @@ export function WorkoutHistory() {
     setPage(0);
   }, []);
 
-  const handleShowAllForMonth = () => {
-    setSelectedDay(null);
-    setPage(0);
-  };
-
   const del = useDeleteWorkout();
   const handleDelete = async (id: number) => {
     await del.mutateAsync(id);
@@ -161,90 +155,19 @@ export function WorkoutHistory() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => {
-            if (month === 1) {
-              handleMonthChange(year - 1, 12);
-            } else {
-              handleMonthChange(year, month - 1);
-            }
-          }}
-          className="rounded-xl p-1.5 hover:bg-surface"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => setShowMonthPicker(!showMonthPicker)}
-          className="flex-1 rounded-xl border border-border px-3 py-2 text-sm font-medium hover:bg-surface text-center"
-        >
-          {selectedDay
-            ? new Date(selectedDay).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
-            : `${MONTH_NAMES[month - 1]} ${year}`}
-        </button>
-        <button
-          onClick={() => {
-            if (month === 12) {
-              handleMonthChange(year + 1, 1);
-            } else {
-              handleMonthChange(year, month + 1);
-            }
-          }}
-          className="rounded-xl p-1.5 hover:bg-surface"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
-
-      {showMonthPicker && (
-        <Card className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => { setYear(year - 1); }}
-              className="rounded-xl p-1.5 hover:bg-surface"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="text-sm font-semibold">{year}</span>
-            <button
-              onClick={() => { setYear(year + 1); }}
-              className="rounded-xl p-1.5 hover:bg-surface"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {MONTH_NAMES.map((name, i) => {
-              const m = i + 1;
-              const isActive = m === month;
-              return (
-                <button
-                  key={m}
-                  onClick={() => {
-                    handleMonthChange(year, m);
-                    setShowMonthPicker(false);
-                  }}
-                  className={cn(
-                    "rounded-xl py-2 text-xs font-medium transition-colors",
-                    isActive ? "bg-workouts text-white" : "border border-border hover:bg-surface",
-                  )}
-                >
-                  {name}
-                </button>
-              );
-            })}
-          </div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">
+          {MONTH_NAMES[month - 1]} {year}
+        </span>
+        {selectedDay && (
           <button
-            onClick={() => {
-              handleMonthChange(now.getFullYear(), now.getMonth() + 1);
-              setShowMonthPicker(false);
-            }}
-            className="w-full rounded-xl border border-border py-2 text-xs text-muted hover:bg-surface"
+            onClick={() => navigate(`/workouts?tab=new&date=${selectedDay}`)}
+            className="rounded-xl border border-workouts px-3 py-1.5 text-sm text-workouts hover:bg-workouts/10"
           >
-            Текущий месяц
+            ➕ Добавить
           </button>
-        </Card>
-      )}
+        )}
+      </div>
 
       <Calendar
         year={year}
@@ -253,18 +176,6 @@ export function WorkoutHistory() {
         onChangeMonth={handleMonthChange}
         onSelectDay={handleDaySelect}
       />
-
-      <div className="flex items-center justify-between">
-        {selectedDay ? (
-          <button onClick={handleShowAllForMonth} className="text-sm text-workouts hover:text-workouts/80">
-            Показать все за месяц
-          </button>
-        ) : (
-          <span className="text-sm text-muted">
-            {MONTH_NAMES[month - 1]} {year}
-          </span>
-        )}
-      </div>
 
       {isLoading && <p className="text-sm text-muted">Загрузка…</p>}
       {!isLoading && workouts.length === 0 && (
