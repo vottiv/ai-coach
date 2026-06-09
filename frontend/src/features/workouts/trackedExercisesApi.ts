@@ -22,7 +22,7 @@ export function useAddTrackedExercise() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (exerciseId: number) =>
-      api.post<{ exercise_id: number }>("/tracked-exercises", { exercise_id }),
+      api.post<{ exercise_id: number }>("/tracked-exercises", { exercise_id: exerciseId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.tracked }),
   });
 }

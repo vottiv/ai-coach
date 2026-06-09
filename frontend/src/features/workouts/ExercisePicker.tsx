@@ -16,19 +16,39 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
   const [category, setCategory] = useState<string>("Все");
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
   const { data: meta } = useExerciseMeta();
   const { data: exercises, isLoading } = useExercises(category, search.trim() || undefined);
 
   const categories = ["Все", ...(meta?.categories ?? [])];
 
+  const handleExerciseClick = (exercise: Exercise) => {
+    setSelectedExercise(exercise);
+  };
+
+  const handleConfirm = () => {
+    if (selectedExercise) {
+      onSelect(selectedExercise);
+      setSelectedExercise(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setSelectedExercise(null);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg">
       <header className="flex items-center gap-3 border-b border-border p-4">
-        <button onClick={onClose} className="rounded-2xl p-2 hover:bg-surface">
+        <button onClick={handleCancel} className="rounded-2xl p-2 hover:bg-surface">
           <X className="h-5 w-5" />
         </button>
-        <h2 className="flex-1 text-lg font-semibold">Выбор упражнения</h2>
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold">Выбор упражнения</h2>
+          <p className="text-xs text-muted">Выберите упражнение для отслеживания</p>
+        </div>
         <Button size="icon" variant="outline" onClick={() => setCreating((v) => !v)}>
           <Plus className="h-5 w-5" />
         </Button>
@@ -84,8 +104,11 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
           {exercises?.map((ex) => (
             <li key={ex.id}>
               <button
-                onClick={() => onSelect(ex)}
-                className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-3 text-left hover:border-zinc-600"
+                onClick={() => handleExerciseClick(ex)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-3 text-left",
+                  selectedExercise?.id === ex.id && "border-workouts bg-workouts/10"
+                )}
               >
                 <div className="flex-1">
                   <p className="text-sm font-medium">
@@ -103,12 +126,28 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
                     )}
                   </div>
                 </div>
-                <Check className="h-4 w-4 text-muted" />
+                {selectedExercise?.id === ex.id ? (
+                  <Check className="h-4 w-4 text-workouts" />
+                ) : (
+                  <Check className="h-4 w-4 text-muted opacity-0" />
+                )}
               </button>
             </li>
           ))}
         </ul>
       </div>
+      
+      {selectedExercise && (
+        <div className="border-t border-border p-4">
+          <Button 
+            onClick={handleConfirm}
+            disabled={!selectedExercise}
+            className="w-full"
+          >
+            Добавить {selectedExercise.name}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

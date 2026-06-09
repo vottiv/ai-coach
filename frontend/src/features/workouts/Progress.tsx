@@ -68,12 +68,23 @@ export function Progress() {
   }, [trackedExercises, recordsSummary]);
 
   const handleAddExercise = async (exercise: { id: number; name: string }) => {
+    if (!exercise.id) {
+      console.error("Exercise ID is missing:", exercise);
+      setShowExercisePicker(false);
+      return;
+    }
+    
     if (trackedExercises.includes(exercise.id)) {
       setShowExercisePicker(false);
       return;
     }
-    await addTracked.mutateAsync(exercise.id);
-    setShowExercisePicker(false);
+    
+    try {
+      await addTracked.mutateAsync(exercise.id);
+      setShowExercisePicker(false);
+    } catch (error) {
+      console.error("Failed to add tracked exercise:", error);
+    }
   };
 
   const handleRemoveExercise = async (exerciseId: number) => {
