@@ -65,6 +65,10 @@ export function Progress() {
   }, [trackedExercises, recordsSummary]);
 
   const handleAddExercise = async (exercise: { id: number; name: string }) => {
+    if (trackedExercises.includes(exercise.id)) {
+      setShowExercisePicker(false);
+      return;
+    }
     await addTracked.mutateAsync(exercise.id);
     setShowExercisePicker(false);
   };
