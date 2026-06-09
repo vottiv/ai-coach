@@ -49,7 +49,10 @@ export function Progress() {
   const [period, setPeriod] = useState("month");
   const [tab, setTab] = useState<Tab>("volume");
   const [showExercisePicker, setShowExercisePicker] = useState(false);
-  const [trackedExercises, setTrackedExercises] = useState<number[]>([]);
+  const [trackedExercises, setTrackedExercises] = useState<number[]>(() => {
+    const saved = localStorage.getItem("trackedExercises");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const { data: volume } = useVolume(period);
   const { data: recordsSummary } = useRecordsSummary();
@@ -63,13 +66,17 @@ export function Progress() {
 
   const handleAddExercise = (exercise: { id: number; name: string }) => {
     if (!trackedExercises.includes(exercise.id)) {
-      setTrackedExercises((prev) => [...prev, exercise.id]);
+      const newTracked = [...trackedExercises, exercise.id];
+      setTrackedExercises(newTracked);
+      localStorage.setItem("trackedExercises", JSON.stringify(newTracked));
     }
     setShowExercisePicker(false);
   };
 
   const handleRemoveExercise = (exerciseId: number) => {
-    setTrackedExercises((prev) => prev.filter((id) => id !== exerciseId));
+    const newTracked = trackedExercises.filter((id) => id !== exerciseId);
+    setTrackedExercises(newTracked);
+    localStorage.setItem("trackedExercises", JSON.stringify(newTracked));
   };
 
   const chartData = (volume ?? []).map((p) => ({ ...p, name: shortLabel(p.label) }));
