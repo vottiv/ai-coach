@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useRecordsSummary, useVolume } from "./api";
 import { MuscleBalanceCard } from "./MuscleBalanceCard";
 import { ExercisePicker } from "./ExercisePicker";
+import { useTrackedExercises, useAddTrackedExercise, useRemoveTrackedExercise } from "./trackedExercisesApi";
 
 const PERIODS = [
   { key: "week", label: "Неделя" },
@@ -49,13 +50,12 @@ export function Progress() {
   const [period, setPeriod] = useState("month");
   const [tab, setTab] = useState<Tab>("volume");
   const [showExercisePicker, setShowExercisePicker] = useState(false);
-  const [trackedExercises, setTrackedExercises] = useState<number[]>(() => {
-    const saved = localStorage.getItem("trackedExercises");
-    return saved ? JSON.parse(saved) : [];
-  });
 
   const { data: volume } = useVolume(period);
   const { data: recordsSummary } = useRecordsSummary();
+  const { data: trackedExercises = [] } = useTrackedExercises();
+  const addTracked = useAddTrackedExercise();
+  const removeTracked = useRemoveTrackedExercise();
 
   const trackedRecords = useMemo(() => {
     if (!recordsSummary || trackedExercises.length === 0) return [];
@@ -64,19 +64,13 @@ export function Progress() {
       .filter((r): r is Exclude<typeof r, undefined> => r !== undefined);
   }, [trackedExercises, recordsSummary]);
 
-  const handleAddExercise = (exercise: { id: number; name: string }) => {
-    if (!trackedExercises.includes(exercise.id)) {
-      const newTracked = [...trackedExercises, exercise.id];
-      setTrackedExercises(newTracked);
-      localStorage.setItem("trackedExercises", JSON.stringify(newTracked));
-    }
+  const handleAddExercise = async (exercise: { id: number; name: string }) => {
+    await addTracked.mutateAsync(exercise.id);
     setShowExercisePicker(false);
   };
 
-  const handleRemoveExercise = (exerciseId: number) => {
-    const newTracked = trackedExercises.filter((id) => id !== exerciseId);
-    setTrackedExercises(newTracked);
-    localStorage.setItem("trackedExercises", JSON.stringify(newTracked));
+  const handleRemoveExercise = async (exerciseId: number) => {
+    await removeTracked.mutateAsync(exerciseId);
   };
 
   const chartData = (volume ?? []).map((p) => ({ ...p, name: shortLabel(p.label) }));

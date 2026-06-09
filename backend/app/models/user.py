@@ -37,6 +37,9 @@ class User(Base):
     identities: Mapped[list["AuthIdentity"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
+    tracked_exercises: Mapped[list["TrackedExercise"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    )
 
     @property
     def computed_age(self) -> int | None:

@@ -10,6 +10,7 @@ from app.modules.insights.router import router as insights_router
 from app.modules.measurements.router import router as measurements_router
 from app.modules.nutrition.router import router as nutrition_router
 from app.modules.subjective.router import router as subjective_router
+from app.modules.tracked_exercises.router import router as tracked_exercises_router
 from app.modules.users.router import router as users_router
 from app.modules.workouts.router import router as workouts_router
 
@@ -40,5 +41,6 @@ api.include_router(subjective_router)
 api.include_router(health_router)
 api.include_router(insights_router)
 api.include_router(measurements_router)
+api.include_router(tracked_exercises_router)
 api.include_router(ai_router)
 app.include_router(api)
