@@ -19,8 +19,6 @@ export interface SetIn {
   weight: number;
   reps: number;
   rpe?: number | null;
-  uses_bodyweight?: boolean;
-  bodyweight_percent?: number | null;
 }
 
 export interface WorkoutExerciseIn {
@@ -29,6 +27,8 @@ export interface WorkoutExerciseIn {
   sets: SetIn[];
   superset_id?: string | null;
   superset_order?: number | null;
+  equipment_type?: string | null;
+  bodyweight_percent?: number | null;
 }
 
 export interface WorkoutCreate {
@@ -45,10 +45,6 @@ export interface SetOut {
   weight: number;
   reps: number;
   rpe: number | null;
-  uses_bodyweight: boolean;
-  bodyweight_percent: number | null;
-  bodyweight_used: number | null;
-  calculated_weight: number | null;
 }
 
 export interface WorkoutExerciseOut {
@@ -59,17 +55,21 @@ export interface WorkoutExerciseOut {
   sets: SetOut[];
   superset_id: string | null;
   superset_order: number | null;
+  equipment_type: string;
+  bodyweight_percent: number | null;
+  bodyweight_used: number | null;
 }
 
 export interface WorkoutOut {
   id: number;
   date: string;
-  type: WorkoutType;
+  type: string;
   feeling: number | null;
   notes: string | null;
   duration: number | null;
   exercises: WorkoutExerciseOut[];
   tonnage: number;
+  intensity: string;
 }
 
 export interface WorkoutListItem {
@@ -151,7 +151,7 @@ export const WORKOUT_TYPE_LABEL: Record<WorkoutType, string> = {
   mixed: "Комбинированная",
 };
 
-export const FEELINGS = ["😣", "😕", "😐", "🙂", "😃"];
+export const FEELINGS = ["1", "2", "3", "4", "5"];
 
 export const PR_LABEL: Record<PersonalRecord["type"], string> = {
   max_weight: "Макс. вес",

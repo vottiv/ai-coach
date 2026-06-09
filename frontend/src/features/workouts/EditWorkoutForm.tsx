@@ -179,16 +179,16 @@ export function EditWorkoutForm({ id, onClose }: EditWorkoutFormProps) {
         <div>
           <label className="mb-2 block text-xs text-muted">Самочувствие</label>
           <div className="flex gap-2">
-            {FEELINGS.map((emoji, i) => (
+            {FEELINGS.map((number, i) => (
               <button
                 key={i}
                 onClick={() => setFeeling(feeling === i + 1 ? null : i + 1)}
                 className={cn(
-                  "flex h-11 flex-1 items-center justify-center rounded-2xl border text-xl",
+                  "flex h-11 flex-1 items-center justify-center rounded-2xl border text-xl font-medium",
                   feeling === i + 1 ? "border-workouts bg-workouts/10" : "border-border",
                 )}
               >
-                {emoji}
+                {number}
               </button>
             ))}
           </div>

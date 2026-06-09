@@ -1,4 +1,4 @@
-import { Plus, Trash2, GripVertical, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, GripVertical, X } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -37,12 +37,6 @@ import { CSS } from "@dnd-kit/utilities";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-type DraggableData = {
-  type: "exercise" | "superset";
-  index: number;
-  exerciseIndex?: number;
-};
-
 function SortableExerciseCard({
   exercise,
   index,
@@ -51,17 +45,17 @@ function SortableExerciseCard({
   onAddSet,
   onRemoveSet,
   onRemove,
-  onToggleBodyweight,
+  onUpdateExercise,
   onSplitSuperset,
 }: {
   exercise: WorkoutExerciseIn;
   index: number;
   inSuperset?: boolean;
-  onUpdateSet: (ei: number, si: number, field: "weight" | "reps" | "uses_bodyweight" | "bodyweight_percent", value: number | boolean) => void;
+  onUpdateSet: (ei: number, si: number, field: "weight" | "reps", value: number) => void;
   onAddSet: (ei: number) => void;
   onRemoveSet: (ei: number, si: number) => void;
   onRemove: (ei: number) => void;
-  onToggleBodyweight: (ei: number, si: number) => void;
+  onUpdateExercise: (ei: number, field: "equipment_type" | "bodyweight_percent", value: string | number | null) => void;
   onSplitSuperset?: () => void;
 }) {
   const {
@@ -79,6 +73,8 @@ function SortableExerciseCard({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isBodyweight = exercise.equipment_type === "bodyweight";
+
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
       <Card className={cn("space-y-3", inSuperset && "border-workouts/50 bg-workouts/5")}>
@@ -95,6 +91,11 @@ function SortableExerciseCard({
               </span>
             )}
             <p className="font-medium">{exercise.exercise_name}</p>
+            {isBodyweight && (
+              <span className="rounded-full bg-workouts/20 px-2 py-0.5 text-xs text-workouts">
+                вес тела
+              </span>
+            )}
           </div>
           <div className="flex gap-1">
             {exercise.superset_id && onSplitSuperset && (
@@ -115,27 +116,54 @@ function SortableExerciseCard({
             </button>
           </div>
         </div>
+        
+        <div className="flex items-center gap-2 px-2">
+          <label className="text-xs text-muted">Тип:</label>
+          <select
+            value={exercise.equipment_type || "other"}
+            onChange={(e) => onUpdateExercise(index, "equipment_type", e.target.value)}
+            className="h-8 rounded-lg border border-border bg-bg px-2 text-xs outline-none focus:border-zinc-500"
+          >
+            {EQUIPMENT_TYPES.map((e) => (
+              <option key={e.key} value={e.key}>
+                {e.label}
+              </option>
+            ))}
+          </select>
+          
+          {isBodyweight && (
+            <>
+              <label className="text-xs text-muted">% веса:</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={exercise.bodyweight_percent ?? 100}
+                onChange={(e) => onUpdateExercise(index, "bodyweight_percent", Number(e.target.value))}
+                min="0"
+                max="200"
+                className="h-8 w-16 rounded-lg border border-border bg-bg px-2 text-xs outline-none focus:border-zinc-500"
+              />
+            </>
+          )}
+        </div>
+        
         <div className="space-y-2">
-          <div className="grid grid-cols-[auto_1fr_1fr_1fr_auto] items-center gap-2 text-xs text-muted">
+          <div className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2 text-xs text-muted">
             <span className="w-6">#</span>
-            <span>Вес, кг</span>
+            <span>{isBodyweight ? "Добавочный вес, кг" : "Вес, кг"}</span>
             <span>Повторы</span>
-            <span>% веса</span>
             <span />
           </div>
           {exercise.sets.map((s, si) => (
-            <div key={si} className="grid grid-cols-[auto_1fr_1fr_1fr_auto] items-center gap-2">
+            <div key={si} className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2">
               <span className="w-6 text-sm text-muted">{si + 1}</span>
               <input
                 type="number"
                 inputMode="decimal"
                 value={s.weight || ""}
                 onChange={(e) => onUpdateSet(index, si, "weight", Number(e.target.value))}
-                disabled={s.uses_bodyweight}
-                className={cn(
-                  "h-10 w-full rounded-xl border border-border bg-bg px-3 text-sm outline-none focus:border-zinc-500",
-                  s.uses_bodyweight && "opacity-50",
-                )}
+                className="h-10 w-full rounded-xl border border-border bg-bg px-3 text-sm outline-none focus:border-zinc-500"
+                placeholder={isBodyweight ? "0" : ""}
               />
               <input
                 type="number"
@@ -144,23 +172,6 @@ function SortableExerciseCard({
                 onChange={(e) => onUpdateSet(index, si, "reps", Number(e.target.value))}
                 className="h-10 w-full rounded-xl border border-border bg-bg px-3 text-sm outline-none focus:border-zinc-500"
               />
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={s.uses_bodyweight}
-                  onChange={(e) => onToggleBodyweight(index, si)}
-                  className="h-4 w-4 accent-workouts"
-                />
-                {s.uses_bodyweight && (
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={s.bodyweight_percent ?? 100}
-                    onChange={(e) => onUpdateSet(index, si, "bodyweight_percent", Number(e.target.value))}
-                    className="h-10 w-16 rounded-xl border border-border bg-bg px-2 text-sm outline-none focus:border-zinc-500"
-                  />
-                )}
-              </div>
               <button
                 onClick={() => onRemoveSet(index, si)}
                 className="p-1 text-muted hover:text-red-400"
@@ -202,20 +213,18 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
 
   const addExercise = (ex: Exercise) => {
     const equipment = EQUIPMENT_TYPES.find((e) => e.key === ex.equipment_type) || EQUIPMENT_TYPES[7];
-    const usesBodyweight = equipment.key === "bodyweight";
-    const bodyweightPercent = usesBodyweight ? (ex.default_bodyweight_percent ?? equipment.bodyweight_percent) : null;
 
     setExercises((prev) => [
       ...prev,
       {
         exercise_id: ex.id,
         exercise_name: ex.name,
+        equipment_type: ex.equipment_type || "other",
+        bodyweight_percent: ex.default_bodyweight_percent ?? equipment.bodyweight_percent,
         sets: [
           {
             weight: 0,
             reps: 0,
-            uses_bodyweight: usesBodyweight,
-            bodyweight_percent: bodyweightPercent,
           },
         ],
       },
@@ -226,8 +235,8 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
   const updateSet = (
     ei: number,
     si: number,
-    field: "weight" | "reps" | "uses_bodyweight" | "bodyweight_percent",
-    value: number | boolean,
+    field: "weight" | "reps",
+    value: number,
   ) =>
     setExercises((prev) =>
       prev.map((e, i) =>
@@ -237,27 +246,24 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
       ),
     );
 
-  const toggleBodyweight = (ei: number, si: number) => {
+  const updateExercise = (
+    ei: number,
+    field: "equipment_type" | "bodyweight_percent",
+    value: string | number | null,
+  ) =>
     setExercises((prev) =>
       prev.map((e, i) => {
         if (i !== ei) return e;
-        const currentSet = e.sets[si];
-        const newValue = !currentSet.uses_bodyweight;
-        return {
-          ...e,
-          sets: e.sets.map((s, j) =>
-            j === si
-              ? {
-                  ...s,
-                  uses_bodyweight: newValue,
-                  bodyweight_percent: newValue ? 100 : null,
-                }
-              : s,
-          ),
-        };
+        
+        const updates: Partial<WorkoutExerciseIn> = { [field]: value };
+        
+        if (field === "equipment_type" && value === "bodyweight") {
+          updates.bodyweight_percent = e.bodyweight_percent ?? 100;
+        }
+        
+        return { ...e, ...updates };
       }),
     );
-  };
 
   const addSet = (ei: number) =>
     setExercises((prev) =>
@@ -268,9 +274,7 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
           ...e,
           sets: [
             ...e.sets,
-            last
-              ? { ...last }
-              : { weight: 0, reps: 0, uses_bodyweight: false, bodyweight_percent: null },
+            last ? { ...last } : { weight: 0, reps: 0 },
           ],
         };
       }),
@@ -486,7 +490,7 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
                 onAddSet={addSet}
                 onRemoveSet={removeSet}
                 onRemove={removeExercise}
-                onToggleBodyweight={toggleBodyweight}
+                onUpdateExercise={updateExercise}
                 onSplitSuperset={
                   ex.superset_id ? () => splitSuperset(ex.superset_id!) : undefined
                 }
@@ -514,16 +518,16 @@ export function NewWorkoutForm({ onSaved }: { onSaved: () => void }) {
         <div>
           <label className="mb-2 block text-xs text-muted">Самочувствие</label>
           <div className="flex gap-2">
-            {FEELINGS.map((emoji, i) => (
+            {FEELINGS.map((number, i) => (
               <button
                 key={i}
                 onClick={() => setFeeling(feeling === i + 1 ? null : i + 1)}
                 className={cn(
-                  "flex h-11 flex-1 items-center justify-center rounded-2xl border text-xl",
+                  "flex h-11 flex-1 items-center justify-center rounded-2xl border text-xl font-medium",
                   feeling === i + 1 ? "border-workouts bg-workouts/10" : "border-border",
                 )}
               >
-                {emoji}
+                {number}
               </button>
             ))}
           </div>
