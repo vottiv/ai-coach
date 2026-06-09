@@ -79,6 +79,8 @@ export interface WorkoutListItem {
   feeling: number | null;
   exercise_count: number;
   tonnage: number;
+  intensity: string;
+  muscle_groups: string[];
 }
 
 export interface CalendarDay {

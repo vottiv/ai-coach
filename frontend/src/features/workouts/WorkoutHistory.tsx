@@ -1,14 +1,14 @@
 import { ChevronLeft, ChevronRight, Edit, Trash2, X } from "lucide-react";
 import { useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
-
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-
-import { useDeleteWorkout, useWorkout, useWorkouts } from "./api";
-import { Calendar } from "./Calendar";
-import { FEELINGS, WORKOUT_TYPE_LABEL } from "./types";
-import { cn } from "@/lib/utils";
+ 
+ import { Button } from "@/components/ui/button";
+ import { Card } from "@/components/ui/card";
+ import { IntensityBadge } from "@/components/IntensityBadge";
+ 
+ import { useDeleteWorkout, useWorkout, useWorkouts } from "./api";
+ import { Calendar } from "./Calendar";
+ import { FEELINGS, WORKOUT_TYPE_LABEL } from "./types";
 
 const MUSCLE_GROUPS: Record<string, string> = {
   "Грудь": "Грудь",
@@ -30,62 +30,19 @@ const MUSCLE_GROUPS: Record<string, string> = {
   "Кардио": "Кардио",
 };
 
-const EXERCISE_MUSCLE_GROUPS: Record<string, string[]> = {
-  "Жим штанги лёжа": ["Грудь", "Плечи", "Руки"],
-  "Жим гантелей лёжа": ["Грудь", "Плечи", "Руки"],
-  "Разводка гантелей": ["Грудь", "Плечи"],
-  "Отжимания": ["Грудь", "Руки", "Плечи", "Кор"],
-  "Кроссовер": ["Грудь"],
-  "Подтягивания": ["Спина", "Руки"],
-  "Тяга верхнего блока": ["Спина", "Руки"],
-  "Тяга штанги в наклоне": ["Спина", "Руки"],
-  "Тяга гантели в наклоне": ["Спина", "Руки"],
-  "Гиперэкстензия": ["Спина", "Ноги"],
-  "Жим гантелей сидя": ["Плечи", "Руки"],
-  "Махи в стороны": ["Плечи"],
-  "Махи в наклоне": ["Плечи"],
-  "Жим Арнольда": ["Плечи", "Руки"],
-  "Сгибание со штангой": ["Руки"],
-  "Сгибание с гантелями": ["Руки"],
-  "Молотки": ["Руки"],
-  "Разгибание на блоке": ["Руки"],
-  "Жим узким хватом": ["Руки", "Грудь"],
-  "Французский жим": ["Руки"],
-  "Приседания": ["Ноги", "Спина"],
-  "Жим ногами": ["Ноги"],
-  "Выпады": ["Ноги"],
-  "Сгибание ног": ["Ноги"],
-  "Румынская тяга": ["Ноги", "Спина"],
-  "Подъём на носки": ["Ноги"],
-  "Скручивания": ["Кор"],
-  "Подъём ног в висе": ["Кор", "Руки"],
-  "Планка": ["Кор", "Спина"],
-  "Русские скручивания": ["Кор"],
-  "Бег": ["Кардио"],
-  "Велосипед": ["Кардио", "Ноги"],
-  "Скакалка": ["Кардио", "Ноги"],
-  "Берпи": ["Кардио", "Грудь", "Ноги", "Плечи", "Кор"],
-};
-
-function getDominantMuscleGroup(workout: any): string {
-  if (!workout.exercises || workout.exercises.length === 0) return "—";
+function groupMuscleGroups(muscleGroups: string[]): string {
+  const grouped: Record<string, number> = {};
   
-  const groupLoad: Record<string, number> = {};
-  
-  for (const exercise of workout.exercises) {
-    const muscles = EXERCISE_MUSCLE_GROUPS[exercise.exercise_name] || [];
-    const volume = exercise.sets.reduce((sum: number, set: any) => 
-      sum + (set.weight * set.reps), 0);
-    
-    for (const muscle of muscles) {
-      groupLoad[muscle] = (groupLoad[muscle] || 0) + volume;
-    }
+  for (const group of muscleGroups) {
+    const category = MUSCLE_GROUPS[group] || group;
+    grouped[category] = (grouped[category] || 0) + 1;
   }
   
-  const sortedGroups = Object.entries(groupLoad)
-    .sort((a, b) => b[1] - a[1]);
-  
-  return sortedGroups.length > 0 ? sortedGroups[0][0] : "—";
+  return Object.entries(grouped)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat]) => cat)
+    .slice(0, 3)
+    .join(", ");
 }
 
 const MONTH_NAMES = [
@@ -186,32 +143,32 @@ export function WorkoutHistory() {
         </Card>
       )}
 
-      {workouts.length > 0 && (
-        <Card className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface">
-              <tr className="border-b border-border">
-                <th className="p-3 text-left">Дата</th>
-                <th className="p-3 text-left">Тип</th>
-                <th className="p-3 text-left">Группа</th>
-                <th className="p-3 text-right">Тоннаж</th>
-                <th className="p-3 text-right">Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-               {workouts.map((w) => (
-                 <WorkoutRow
-                   key={w.id}
-                   workout={w}
-                   onOpen={() => setOpenId(w.id)}
-                   onEdit={() => navigate(`/workouts/${w.id}/edit`)}
-                   onDelete={() => setDeleteId(w.id)}
-                 />
-               ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+       {workouts.length > 0 && (
+         <Card className="overflow-hidden">
+           <table className="w-full text-sm">
+              <thead className="bg-surface">
+                <tr className="border-b border-border">
+                  <th className="p-3 text-left">Дата</th>
+                  <th className="p-3 text-left">Тип</th>
+                  <th className="p-3 text-left">Группа</th>
+                  <th className="p-3 text-left">Объем</th>
+                  <th className="p-3 text-right"></th>
+                </tr>
+              </thead>
+             <tbody>
+                {workouts.map((w) => (
+                  <WorkoutRow
+                    key={w.id}
+                    workout={w}
+                    onOpen={() => setOpenId(w.id)}
+                    onEdit={() => navigate(`/workouts/${w.id}/edit`)}
+                    onDelete={() => setDeleteId(w.id)}
+                  />
+                ))}
+             </tbody>
+           </table>
+         </Card>
+       )}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
@@ -278,38 +235,38 @@ const WorkoutRow = memo(({ workout, onOpen, onEdit, onDelete }: {
         {formatDate(workout.date)}
       </button>
     </td>
-    <td className="p-3">{WORKOUT_TYPE_LABEL[workout.type]}</td>
-    <td className="p-3">{getDominantMuscleGroup(workout)}</td>
-    <td className="p-3 text-right">
-      {Math.round(workout.tonnage).toLocaleString("ru-RU")} кг
-    </td>
-    <td className="p-3">
-      <div className="flex items-center justify-end gap-1">
-        {workout.feeling && <span className="text-lg">{FEELINGS[workout.feeling - 1]}</span>}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-        >
-          <Edit className="h-3 w-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      </div>
-    </td>
+    <td className="p-3">{WORKOUT_TYPE_LABEL[workout.type as keyof typeof WORKOUT_TYPE_LABEL] || workout.type}</td>
+     <td className="p-3">{groupMuscleGroups(workout.muscle_groups || [])}</td>
+     <td className="p-3">
+       <IntensityBadge intensity={workout.intensity || "very_light"} />
+     </td>
+     <td className="p-3">
+       <div className="flex items-center justify-end gap-1">
+         {workout.feeling && <span className="text-lg">{FEELINGS[workout.feeling - 1]}</span>}
+         <Button
+           variant="ghost"
+           size="icon"
+           className="h-7 w-7"
+           onClick={(e) => {
+             e.stopPropagation();
+             onEdit();
+           }}
+         >
+           <Edit className="h-3 w-3" />
+         </Button>
+         <Button
+           variant="ghost"
+           size="icon"
+           className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+           onClick={(e) => {
+             e.stopPropagation();
+             onDelete();
+           }}
+         >
+           <Trash2 className="h-3 w-3" />
+         </Button>
+       </div>
+     </td>
   </tr>
 ));
 

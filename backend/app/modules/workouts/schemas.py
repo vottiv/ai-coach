@@ -12,8 +12,6 @@ class SetIn(BaseModel):
     weight: float = Field(ge=0, le=2000)
     reps: int = Field(ge=0, le=1000)
     rpe: float | None = Field(default=None, ge=1, le=10)
-    uses_bodyweight: bool = False
-    bodyweight_percent: float | None = Field(default=None, ge=0, le=200)
 
 
 class WorkoutExerciseIn(BaseModel):
@@ -22,6 +20,8 @@ class WorkoutExerciseIn(BaseModel):
     sets: list[SetIn] = Field(default_factory=list)
     superset_id: str | None = None
     superset_order: int | None = None
+    equipment_type: str | None = None
+    bodyweight_percent: float | None = Field(default=None, ge=0, le=200)
 
 
 class WorkoutCreate(BaseModel):
@@ -38,10 +38,6 @@ class SetOut(BaseModel):
     weight: float
     reps: int
     rpe: float | None = None
-    uses_bodyweight: bool
-    bodyweight_percent: float | None = None
-    bodyweight_used: float | None = None
-    calculated_weight: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -54,6 +50,9 @@ class WorkoutExerciseOut(BaseModel):
     sets: list[SetOut] = []
     superset_id: str | None = None
     superset_order: int | None = None
+    equipment_type: str = "other"
+    bodyweight_percent: float | None = None
+    bodyweight_used: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -67,6 +66,7 @@ class WorkoutOut(BaseModel):
     duration: int | None = None
     exercises: list[WorkoutExerciseOut] = []
     tonnage: float = 0
+    intensity: str = "very_light"
 
     model_config = {"from_attributes": True}
 
@@ -78,6 +78,8 @@ class WorkoutListItem(BaseModel):
     feeling: int | None = None
     exercise_count: int = 0
     tonnage: float = 0
+    intensity: str = "very_light"
+    muscle_groups: list[str] = []
 
 
 class CalendarDay(BaseModel):

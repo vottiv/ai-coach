@@ -27,6 +27,43 @@ def _to_out(workout: Workout) -> WorkoutOut:
     return out
 
 
+async def _get_dominant_muscle_groups(workout: Workout, db: DbSession) -> list[str]:
+    from collections import defaultdict
+    from sqlalchemy import select
+    from app.models.exercise import ExerciseCatalog
+
+    volume_per_group: defaultdict[str, float] = defaultdict(float)
+    exercise_ids = [we.exercise_id for we in workout.exercises if we.exercise_id]
+    
+    if not exercise_ids:
+        return []
+
+    exercises = {
+        ex.id: ex.muscle_groups
+        for ex in await db.scalars(
+            select(ExerciseCatalog).where(ExerciseCatalog.id.in_(exercise_ids))
+        )
+    }
+
+    for we in workout.exercises:
+        if not we.exercise_id:
+            continue
+
+        exercise_volume = sum(s.weight * s.reps for s in we.sets)
+        if exercise_volume == 0:
+            continue
+
+        muscle_groups = exercises.get(we.exercise_id, [])
+        for group in muscle_groups or []:
+            volume_per_group[group] += exercise_volume
+
+    if not volume_per_group:
+        return []
+
+    sorted_groups = sorted(volume_per_group.items(), key=lambda x: x[1], reverse=True)
+    return [group for group, _ in sorted_groups[:3]]
+
+
 @router.post("", response_model=WorkoutOut, status_code=status.HTTP_201_CREATED)
 async def create_workout(body: WorkoutCreate, user: CurrentUser, db: DbSession) -> WorkoutOut:
     workout = await service.create_workout(db, user.id, body)
@@ -45,6 +82,12 @@ async def list_workouts(
     workouts, total = await service.list_workouts(
         db, user.id, from_date=from_date, to_date=to_date, skip=skip, limit=limit
     )
+    
+    muscle_groups_map = {
+        w.id: await _get_dominant_muscle_groups(w, db)
+        for w in workouts
+    }
+    
     return PaginatedWorkouts(
         items=[
             WorkoutListItem(
@@ -54,6 +97,8 @@ async def list_workouts(
                 feeling=w.feeling,
                 exercise_count=len(w.exercises),
                 tonnage=service.tonnage(w),
+                intensity=w.intensity,
+                muscle_groups=muscle_groups_map[w.id],
             )
             for w in workouts
         ],
