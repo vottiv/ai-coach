@@ -20,7 +20,8 @@ export function PersonalRecordHistoryDialog({
   onClose,
 }: Props) {
   const navigate = useNavigate();
-  const { data: history, isLoading } = usePrHistory(String(exerciseId));
+  const exerciseKey = exerciseId === -1 ? exerciseName : String(exerciseId);
+  const { data: history, isLoading } = usePrHistory(exerciseKey);
 
   if (!open) return null;
 

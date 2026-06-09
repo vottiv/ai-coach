@@ -9,7 +9,7 @@ class TrackedExercise(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    exercise_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercises.id", ondelete="CASCADE"))
+    exercise_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercise_catalog.id", ondelete="CASCADE"))
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="tracked_exercises")

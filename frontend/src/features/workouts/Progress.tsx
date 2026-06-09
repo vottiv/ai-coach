@@ -84,10 +84,12 @@ export function Progress() {
       setShowExercisePicker(false);
     } catch (error) {
       console.error("Failed to add tracked exercise:", error);
+      setShowExercisePicker(false);
     }
   };
 
   const handleRemoveExercise = async (exerciseId: number) => {
+    if (exerciseId === -1) return;  // Кастомные упражнения
     await removeTracked.mutateAsync(exerciseId);
   };
 
@@ -200,13 +202,20 @@ export function Progress() {
             </div>
           )}
 
+          {trackedExercises.length > 0 && trackedRecords.length === 0 && (
+            <div className="py-8 text-center">
+              <Dumbbell className="mx-auto h-10 w-10 text-muted mb-3" />
+              <p className="text-sm text-muted">Пока нет рекордов по этим упражнениям</p>
+            </div>
+          )}
+
           <div className="space-y-2">
             {trackedRecords.map((record) => (
               <PersonalRecordCard
                 key={record.exercise_id ?? record.exercise_name}
                 record={record}
-                onRemove={() => handleRemoveExercise(record.exercise_id!)}
-                onClick={() => handleShowHistory(record.exercise_id!, record.exercise_name)}
+                onRemove={() => handleRemoveExercise(record.exercise_id ?? -1)}
+                onClick={() => handleShowHistory(record.exercise_id ?? -1, record.exercise_name)}
               />
             ))}
           </div>

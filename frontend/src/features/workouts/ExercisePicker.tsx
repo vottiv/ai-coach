@@ -140,11 +140,11 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
       {selectedExercise && (
         <div className="border-t border-border p-4">
           <Button 
-            onClick={handleConfirm}
-            disabled={!selectedExercise}
+            onClick={handleConfirm} 
+            disabled={!selectedExercise} 
             className="w-full"
           >
-            Добавить {selectedExercise.name}
+            Добавить
           </Button>
         </div>
       )}
