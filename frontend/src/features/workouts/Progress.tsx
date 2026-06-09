@@ -55,8 +55,8 @@ export function Progress() {
   const [historyExercise, setHistoryExercise] = useState<{ id: number; name: string } | null>(null);
 
   const { data: volume } = useVolume(period);
-  const { data: recordsSummary } = useRecordsSummary(trackedExercises);
   const { data: trackedExercises = [] } = useTrackedExercises();
+  const { data: recordsSummary } = useRecordsSummary(trackedExercises);
   const addTracked = useAddTrackedExercise();
   const removeTracked = useRemoveTrackedExercise();
 
