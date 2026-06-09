@@ -12,6 +12,7 @@ from app.modules.workouts.schemas import (
     MuscleGroupBalance,
     PaginatedWorkouts,
     PersonalRecordOut,
+    PersonalRecordSummary,
     VolumePoint,
     WorkoutCreate,
     WorkoutListItem,
@@ -138,10 +139,29 @@ async def records(user: CurrentUser, db: DbSession) -> list[PersonalRecordOut]:
     return [PersonalRecordOut.model_validate(i) for i in items]
 
 
-@router.get("/records/summary", response_model=list[ExerciseRecordSummary])
-async def exercise_records_summary(user: CurrentUser, db: DbSession) -> list[ExerciseRecordSummary]:
-    items = await service.exercise_records_summary(db, user.id)
-    return [ExerciseRecordSummary(**i) for i in items]
+@router.get("/records/summary", response_model=list[PersonalRecordSummary])
+async def exercise_records_summary(
+    user: CurrentUser,
+    db: DbSession,
+    exercise_ids: str | None = None,
+) -> list[PersonalRecordSummary]:
+    ids = None
+    if exercise_ids:
+        ids = [int(x) for x in exercise_ids.split(",")]
+    
+    items = await service.exercise_records_summary(db, user.id, ids)
+    return [PersonalRecordSummary(**item) for item in items]
+
+
+@router.get("/records/{exercise_key}/history", response_model=list[PersonalRecordOut])
+async def pr_history(
+    exercise_key: str,
+    user: CurrentUser,
+    db: DbSession,
+    pr_type: str = "max_weight"
+) -> list[PersonalRecordOut]:
+    records = await service.get_pr_history(db, user.id, exercise_key, pr_type)
+    return [PersonalRecordOut.model_validate(r) for r in records]
 
 
 @router.get("/progress/volume", response_model=list[VolumePoint])

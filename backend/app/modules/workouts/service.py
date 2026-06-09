@@ -123,7 +123,7 @@ async def create_workout(db: AsyncSession, user_id: int, data: WorkoutCreate) ->
     
     workout.intensity = _calculate_intensity(tonnage(workout), bodyweight)
     
-    await _update_personal_records(db, user_id, data)
+    await _update_personal_records(db, user_id, data, workout.id)
     await db.commit()
     return workout
 
@@ -246,7 +246,7 @@ async def update_workout(db: AsyncSession, user_id: int, workout_id: int, data: 
     workout.intensity = _calculate_intensity(tonnage(workout), bodyweight)
 
     await db.flush()
-    await _update_personal_records(db, user_id, data)
+    await _update_personal_records(db, user_id, data, workout.id)
     await db.commit()
     return workout
 
@@ -254,57 +254,129 @@ async def update_workout(db: AsyncSession, user_id: int, workout_id: int, data: 
 # --- Personal records (ТЗ п. 8.1) ----------------------------------------
 
 async def _update_personal_records(
-    db: AsyncSession, user_id: int, data: WorkoutCreate
+    db: AsyncSession, user_id: int, data: WorkoutCreate, workout_id: int
 ) -> None:
-    # Кандидаты-максимумы по упражнению из текущей тренировки
-    candidates: dict[int, dict[str, float]] = {}
-    names: dict[int, str] = {}
+    # Получаем созданные упражнения из тренировки для получения set_id
+    workout = await db.scalar(
+        select(Workout)
+        .where(Workout.id == workout_id)
+        .options(selectinload(Workout.exercises).selectinload(WorkoutExercise.sets))
+    )
+    
+    if not workout:
+        return
+    
+    # Создаем маппинг exercise_name -> WorkoutExercise для кастомных упражнений
+    custom_exercises_by_name = {
+        we.exercise_name: we 
+        for we in workout.exercises 
+        if we.exercise_id is None
+    }
+    
+    # Маппинг для отслеживания лучших результатов
+    candidates: dict[str, dict[str, any]] = {}
+    
     for ex in data.exercises:
-        if ex.exercise_id is None or not ex.sets:
+        if not ex.sets:
             continue
-        max_weight = max(s.weight for s in ex.sets)
+            
+        # Определяем exercise_key
+        exercise_key = str(ex.exercise_id) if ex.exercise_id else ex.exercise_name
+        
+        # Находим лучший сет по весу (для max_weight)
+        max_weight_set = max(ex.sets, key=lambda s: (s.weight, s.reps))
+        max_weight = max_weight_set.weight
+        max_reps_at_max_weight = max_weight_set.reps
+        
+        # Находим лучшие метрики для других типов PR
         max_reps = max(s.reps for s in ex.sets)
         max_volume = max(s.weight * s.reps for s in ex.sets)
-        cur = candidates.setdefault(
-            ex.exercise_id, {"max_weight": 0, "max_reps": 0, "max_volume": 0}
-        )
-        cur["max_weight"] = max(cur["max_weight"], max_weight)
-        cur["max_reps"] = max(cur["max_reps"], max_reps)
-        cur["max_volume"] = max(cur["max_volume"], max_volume)
-        names[ex.exercise_id] = ex.exercise_name
-
+        
+        # Находим соответствующий WorkoutExercise
+        workout_exercise = None
+        if ex.exercise_id:
+            workout_exercise = next(
+                (we for we in workout.exercises if we.exercise_id == ex.exercise_id),
+                None
+            )
+        else:
+            workout_exercise = custom_exercises_by_name.get(ex.exercise_name)
+        
+        if not workout_exercise:
+            continue
+        
+        # Находим best set в базе данных
+        best_set = None
+        if max_weight_set:
+            best_set = next(
+                (s for s in workout_exercise.sets 
+                 if abs(s.weight - max_weight_set.weight) < 0.01 and s.reps == max_weight_set.reps),
+                None
+            )
+        
+        candidates[exercise_key] = {
+            "exercise_key": exercise_key,
+            "exercise_id": ex.exercise_id,
+            "exercise_name": ex.exercise_name,
+            "max_weight": {
+                "value": max_weight,
+                "reps_at_max_weight": max_reps_at_max_weight,
+                "set_id": best_set.id if best_set else None,
+                "workout_id": workout_id,
+            },
+            "max_reps": {"value": max_reps},
+            "max_volume": {"value": max_volume},
+        }
+    
     if not candidates:
         return
-
+    
+    # Получаем существующие PR по exercise_key
     existing = list(
         await db.scalars(
             select(PersonalRecord).where(
                 PersonalRecord.user_id == user_id,
-                PersonalRecord.exercise_id.in_(candidates.keys()),
+                PersonalRecord.exercise_key.in_(candidates.keys()),
             )
         )
     )
-    by_key = {(pr.exercise_id, pr.type): pr for pr in existing}
-
-    for exercise_id, maxes in candidates.items():
+    by_key = {(pr.exercise_key, pr.type): pr for pr in existing}
+    
+    # Обновляем или создаем PR
+    for exercise_key, candidate in candidates.items():
         for pr_type in PR_TYPES:
-            value = maxes[pr_type]
+            if pr_type not in candidate:
+                continue
+                
+            pr_data = candidate[pr_type]
+            value = pr_data["value"]
+            
             if value <= 0:
                 continue
-            pr = by_key.get((exercise_id, pr_type))
+            
+            pr = by_key.get((exercise_key, pr_type))
+            
             if pr is None:
-                db.add(
-                    PersonalRecord(
-                        user_id=user_id,
-                        exercise_id=exercise_id,
-                        exercise_name=names[exercise_id],
-                        type=pr_type,
-                        value=value,
-                    )
+                # Создаем новый PR
+                new_pr = PersonalRecord(
+                    user_id=user_id,
+                    exercise_id=candidate["exercise_id"],
+                    exercise_name=candidate["exercise_name"],
+                    exercise_key=exercise_key,
+                    type=pr_type,
+                    value=value,
+                    reps_at_max_weight=pr_data.get("reps_at_max_weight", 0),
+                    set_id=pr_data.get("set_id"),
+                    workout_id=pr_data.get("workout_id"),
                 )
+                db.add(new_pr)
             elif value > pr.value:
+                # Обновляем существующий PR
                 pr.value = value
-                pr.exercise_name = names[exercise_id]
+                pr.exercise_name = candidate["exercise_name"]
+                pr.reps_at_max_weight = pr_data.get("reps_at_max_weight", 0)
+                pr.set_id = pr_data.get("set_id")
+                pr.workout_id = pr_data.get("workout_id")
                 pr.achieved_at = func.now()
 
 
@@ -430,53 +502,81 @@ async def volume_progress(db: AsyncSession, user_id: int, period: str) -> list[d
     return [{"label": label, "volume": buckets[label]} for label in sorted(buckets)]
 
 
-async def exercise_records_summary(db: AsyncSession, user_id: int) -> list[dict]:
-    stmt = (
-        select(
-            ExerciseCatalog.id.label("exercise_id"),
-            ExerciseCatalog.name.label("exercise_name"),
-            func.max(ExerciseSet.weight).label("max_weight"),
-        )
-        .select_from(Workout)
-        .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
-        .join(ExerciseSet, ExerciseSet.workout_exercise_id == WorkoutExercise.id)
-        .join(ExerciseCatalog, ExerciseCatalog.id == WorkoutExercise.exercise_id)
-        .where(Workout.user_id == user_id, WorkoutExercise.exercise_id.isnot(None))
-        .group_by(ExerciseCatalog.id, ExerciseCatalog.name)
-        .order_by(func.max(ExerciseSet.weight).desc())
-    )
+async def exercise_records_summary(db: AsyncSession, user_id: int, exercise_ids: list[int] | None = None) -> list[dict]:
     results = []
-
-    rows = await db.execute(stmt)
-    max_weights = {row.exercise_id: row.max_weight for row in rows}
-
-    for exercise_id, max_weight in max_weights.items():
-        if max_weight == 0:
-            continue
-
-        max_reps_stmt = (
-            select(func.max(ExerciseSet.reps))
-            .select_from(Workout)
-            .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
-            .join(ExerciseSet, ExerciseSet.workout_exercise_id == WorkoutExercise.id)
-            .where(
-                Workout.user_id == user_id,
-                WorkoutExercise.exercise_id == exercise_id,
-                ExerciseSet.weight == max_weight,
-            )
+    
+    # Определяем exercise_keys для поиска
+    exercise_keys = []
+    
+    if exercise_ids:
+        # Для конкретных упражнений
+        exercise_keys = [str(eid) for eid in exercise_ids]
+    else:
+        # Для всех отслеживаемых упражнений (будет обрабатываться через tracked_exercises)
+        return []
+    
+    # Получаем PR для всех exercise_keys
+    all_records = await db.execute(
+        select(PersonalRecord)
+        .where(
+            PersonalRecord.user_id == user_id,
+            PersonalRecord.exercise_key.in_(exercise_keys),
+            PersonalRecord.type == "max_weight",
         )
-        max_reps = (await db.scalar(max_reps_stmt)) or 0
-
-        exercise = await db.scalar(select(ExerciseCatalog).where(ExerciseCatalog.id == exercise_id))
-        if exercise:
-            results.append({
-                "exercise_id": exercise_id,
-                "exercise_name": exercise.name,
-                "max_weight": float(max_weight),
-                "max_reps_at_max_weight": max_reps,
-            })
-
+        .order_by(PersonalRecord.achieved_at.desc())
+    )
+    
+    # Группируем по exercise_key
+    records_by_key: dict[str, list[PersonalRecord]] = {}
+    for record in all_records.scalars().all():
+        if record.exercise_key not in records_by_key:
+            records_by_key[record.exercise_key] = []
+        records_by_key[record.exercise_key].append(record)
+    
+    # Формируем результаты
+    for exercise_key in exercise_keys:
+        if exercise_key not in records_by_key or len(records_by_key[exercise_key]) == 0:
+            continue
+            
+        records = records_by_key[exercise_key]
+        current = records[0]
+        previous = records[1] if len(records) > 1 else None
+        
+        # Определяем exercise_id и exercise_name
+        exercise_id = current.exercise_id
+        exercise_name = current.exercise_name
+        
+        results.append({
+            "exercise_id": exercise_id,
+            "exercise_name": exercise_name,
+            "max_weight": current.value,
+            "max_reps_at_max_weight": current.reps_at_max_weight,
+            "achieved_at": current.achieved_at.isoformat(),
+            "workout_id": current.workout_id,
+            "previous_value": previous.value if previous else None,
+            "previous_achieved_at": previous.achieved_at.isoformat() if previous else None,
+            "previous_reps": previous.reps_at_max_weight if previous else None,
+        })
+    
     return results
+
+
+async def get_pr_history(
+    db: AsyncSession, 
+    user_id: int, 
+    exercise_key: str, 
+    pr_type: str = "max_weight"
+) -> list[PersonalRecord]:
+    stmt = (
+        select(PersonalRecord)
+        .where(
+            PersonalRecord.user_id == user_id,
+            PersonalRecord.exercise_key == exercise_key,
+            PersonalRecord.type == pr_type,
+        )
+        .order_by(PersonalRecord.achieved_at.desc())
+    )
+    return list(await db.scalars(stmt))
 
 
 CATEGORY_TO_MUSCLE_GROUPS = {

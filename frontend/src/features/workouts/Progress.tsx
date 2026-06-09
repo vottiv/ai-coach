@@ -18,6 +18,8 @@ import { useRecordsSummary, useVolume } from "./api";
 import { MuscleBalanceCard } from "./MuscleBalanceCard";
 import { ExercisePicker } from "./ExercisePicker";
 import { useTrackedExercises, useAddTrackedExercise, useRemoveTrackedExercise } from "./trackedExercisesApi";
+import { PersonalRecordCard } from "./PersonalRecordCard";
+import { PersonalRecordHistoryDialog } from "./PersonalRecordHistoryDialog";
 
 const PERIODS = [
   { key: "week", label: "Неделя" },
@@ -50,9 +52,10 @@ export function Progress() {
   const [period, setPeriod] = useState("month");
   const [tab, setTab] = useState<Tab>("volume");
   const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [historyExercise, setHistoryExercise] = useState<{ id: number; name: string } | null>(null);
 
   const { data: volume } = useVolume(period);
-  const { data: recordsSummary } = useRecordsSummary();
+  const { data: recordsSummary } = useRecordsSummary(trackedExercises);
   const { data: trackedExercises = [] } = useTrackedExercises();
   const addTracked = useAddTrackedExercise();
   const removeTracked = useRemoveTrackedExercise();
@@ -75,6 +78,10 @@ export function Progress() {
 
   const handleRemoveExercise = async (exerciseId: number) => {
     await removeTracked.mutateAsync(exerciseId);
+  };
+
+  const handleShowHistory = (exerciseId: number, exerciseName: string) => {
+    setHistoryExercise({ id: exerciseId, name: exerciseName });
   };
 
   const chartData = (volume ?? []).map((p) => ({ ...p, name: shortLabel(p.label) }));
@@ -184,33 +191,12 @@ export function Progress() {
 
           <div className="space-y-2">
             {trackedRecords.map((record) => (
-              <div
-                key={record.exercise_id}
-                className="group relative rounded-2xl border border-border bg-surface px-4 py-3 hover:border-zinc-600 transition-colors"
-              >
-                <button
-                  onClick={() => handleRemoveExercise(record.exercise_id)}
-                  className="absolute right-3 top-3 rounded-lg p-1 text-muted opacity-0 hover:text-red-400 transition-opacity group-hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <div className="pr-6">
-                  <p className="text-sm font-medium">{record.exercise_name}</p>
-                  {record.max_weight > 0 ? (
-                    <div className="mt-2 flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-workouts">
-                        {record.max_weight}
-                      </span>
-                      <span className="text-sm text-muted">кг</span>
-                      <span className="text-xs text-muted">× {record.max_reps_at_max_weight} повт.</span>
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-sm text-muted">
-                      Попробуйте свои силы и обновите результат
-                    </p>
-                  )}
-                </div>
-              </div>
+              <PersonalRecordCard
+                key={record.exercise_id ?? record.exercise_name}
+                record={record}
+                onRemove={() => handleRemoveExercise(record.exercise_id!)}
+                onClick={() => handleShowHistory(record.exercise_id!, record.exercise_name)}
+              />
             ))}
           </div>
 
@@ -218,6 +204,15 @@ export function Progress() {
             <ExercisePicker onSelect={handleAddExercise} onClose={() => setShowExercisePicker(false)} />
           )}
         </Card>
+      )}
+
+      {historyExercise && (
+        <PersonalRecordHistoryDialog
+          exerciseId={historyExercise.id}
+          exerciseName={historyExercise.name}
+          open={historyExercise !== null}
+          onClose={() => setHistoryExercise(null)}
+        />
       )}
 
       {tab === "insights" && <InsightsList />}

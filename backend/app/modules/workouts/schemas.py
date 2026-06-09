@@ -112,15 +112,23 @@ class PersonalRecordOut(BaseModel):
     type: str
     value: float
     achieved_at: datetime
+    set_id: int | None
+    workout_id: int | None
+    reps_at_max_weight: int
 
     model_config = {"from_attributes": True}
 
 
-class PaginatedWorkouts(BaseModel):
-    items: list[WorkoutListItem]
-    total: int
-    skip: int
-    limit: int
+class PersonalRecordSummary(BaseModel):
+    exercise_id: int | None
+    exercise_name: str
+    max_weight: float
+    max_reps_at_max_weight: int
+    achieved_at: str
+    workout_id: int | None
+    previous_value: float | None
+    previous_achieved_at: str | None
+    previous_reps: int | None
 
 
 class ExerciseRecordSummary(BaseModel):
@@ -128,6 +136,13 @@ class ExerciseRecordSummary(BaseModel):
     exercise_name: str
     max_weight: float
     max_reps_at_max_weight: int
+
+
+class PaginatedWorkouts(BaseModel):
+    items: list[WorkoutListItem]
+    total: int
+    skip: int
+    limit: int
 
 
 class MuscleGroupBalance(BaseModel):

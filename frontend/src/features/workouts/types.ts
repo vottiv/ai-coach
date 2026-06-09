@@ -83,6 +83,32 @@ export interface WorkoutListItem {
   muscle_groups: string[];
 }
 
+export interface PersonalRecordSummary {
+  exercise_id: number | null;
+  exercise_name: string;
+  max_weight: number;
+  max_reps_at_max_weight: number;
+  achieved_at: string;
+  workout_id: number | null;
+  previous_value: number | null;
+  previous_achieved_at: string | null;
+  previous_reps: number | null;
+}
+
+export interface PersonalRecordHistory {
+  id: number;
+  exercise_id: number | null;
+  exercise_name: string;
+  type: string;
+  value: number;
+  achieved_at: string;
+  set_id: number | null;
+  workout_id: number | null;
+  reps_at_max_weight: number;
+}
+
+export type PersonalRecordOut = PersonalRecordHistory;
+
 export interface CalendarDay {
   date: string;
   count: number;

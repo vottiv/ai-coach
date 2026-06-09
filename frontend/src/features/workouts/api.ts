@@ -31,7 +31,8 @@ const keys = {
   balance: ["muscle-balance"] as const,
   balanceCategories: ["muscle-balance-categories"] as const,
   records: ["records"] as const,
-  recordsSummary: ["records-summary"] as const,
+  recordsSummary: (exerciseIds?: number[]) => ["records-summary", exerciseIds] as const,
+  recordsHistory: (exerciseKey: string) => ["records-history", exerciseKey] as const,
   volume: (period: string) => ["volume", period] as const,
 };
 
@@ -149,11 +150,23 @@ export function useRecords() {
   });
 }
 
-export function useRecordsSummary() {
+export function useRecordsSummary(exerciseIds?: number[]) {
   return useQuery({
-    queryKey: keys.recordsSummary,
-    queryFn: () => api.get<ExerciseRecordSummary[]>("/workouts/records/summary"),
+    queryKey: keys.recordsSummary(exerciseIds),
+    queryFn: () => {
+      const params = exerciseIds ? { exercise_ids: exerciseIds.join(",") } : undefined;
+      return api.get<PersonalRecordSummary[]>("/workouts/records/summary", params);
+    },
     staleTime: 60000,
+  });
+}
+
+export function usePrHistory(exerciseKey: string) {
+  return useQuery({
+    queryKey: keys.recordsHistory(exerciseKey),
+    queryFn: () => api.get<PersonalRecordHistory[]>(`/workouts/records/${exerciseKey}/history`),
+    enabled: !!exerciseKey,
+    staleTime: 120000,
   });
 }
 
