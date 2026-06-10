@@ -28,10 +28,9 @@ const PERIODS = [
   { key: "year", label: "Год" },
 ];
 
-type Tab = "volume" | "records" | "muscles" | "insights";
+type Tab = "records" | "muscles" | "insights";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "volume", label: "Объём" },
   { key: "records", label: "Рекорды" },
   { key: "muscles", label: "Мышцы" },
   { key: "insights", label: "Инсайты" },
@@ -119,65 +118,6 @@ export function Progress() {
           </button>
         ))}
       </div>
-
-      {tab === "volume" && (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-medium">Объём (тоннаж)</h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {PERIODS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => setPeriod(p.key)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs",
-                  period === p.key
-                    ? "border-workouts bg-workouts/10 text-workouts"
-                    : "border-border text-muted",
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          {chartData.length === 0 ? (
-            <p className="text-sm text-muted">Нет данных за период.</p>
-          ) : (
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="vol" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#F97316" stopOpacity={0.5} />
-                      <stop offset="100%" stopColor="#F97316" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#a1a1aa" }} stroke="#3f3f46" />
-                  <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} stroke="#3f3f46" width={48} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "#18181b",
-                      border: "1px solid #3f3f46",
-                      borderRadius: 12,
-                      fontSize: 12,
-                    }}
-                    labelStyle={{ color: "#a1a1aa" }}
-                    formatter={(v: number) => [`${Math.round(v).toLocaleString("ru-RU")} кг`, "Объём"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="volume"
-                    stroke="#F97316"
-                    strokeWidth={2}
-                    fill="url(#vol)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-      )}
 
       {tab === "muscles" && <MuscleBalanceCard />}
 
